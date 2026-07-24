@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="單字寵物">
+<title>單字寵物 · 學英文養小龍</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;}
+  html,body{height:100%;}
+  body{background:linear-gradient(160deg,#5b8def,#7b6cf6 55%,#9b6cf6);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .app{width:100%;max-width:520px;height:100%;max-height:900px;display:flex;flex-direction:column;padding:18px;}
+  .hidden{display:none!important;}
+  /* login */
+  #login{margin:auto;text-align:center;padding:30px;}
+  #login .logo{font-size:96px;margin-bottom:6px;}
+  #login h1{font-size:32px;font-weight:900;margin-bottom:8px;}
+  #login p{font-size:17px;opacity:.9;margin-bottom:28px;}
+  #login input{width:100%;font-size:24px;padding:16px 18px;border:none;border-radius:16px;text-align:center;color:#333;font-weight:700;margin-bottom:16px;}
+  .btn{background:#ffcf3f;color:#5b3a00;font-weight:900;border:none;border-radius:16px;padding:16px;font-size:22px;cursor:pointer;box-shadow:0 6px 0 #d9a900;transition:.05s;width:100%;}
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #d9a900;}
+  /* pet header */
+  .pet{background:rgba(255,255,255,.14);border-radius:22px;padding:16px;text-align:center;position:relative;}
+  .pet .stage{position:absolute;top:12px;right:16px;background:#ffcf3f;color:#5b3a00;font-weight:900;font-size:13px;padding:4px 12px;border-radius:999px;}
+  .pet .food{position:absolute;top:12px;left:16px;font-weight:900;font-size:17px;}
+  .pet .avatar{font-size:96px;line-height:1.1;margin:6px 0 2px;transition:transform .3s;}
+  .pet .pname{font-size:19px;font-weight:900;}
+  .pet .lv{font-size:14px;opacity:.9;margin-top:2px;}
+  .bar{height:14px;background:rgba(0,0,0,.22);border-radius:999px;margin:10px 24px 4px;overflow:hidden;}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#7bff9b,#39d353);width:0;transition:width .4s;}
+  .feedbtn{margin:12px auto 0;display:block;width:auto;padding:12px 26px;font-size:18px;background:#ff8a5b;color:#fff;box-shadow:0 6px 0 #d95f2f;}
+  .feedbtn:active{box-shadow:0 2px 0 #d95f2f;}
+  .feedbtn:disabled{opacity:.45;box-shadow:0 6px 0 #d95f2f;}
+  /* quiz */
+  .quiz{background:#fff;color:#2b2b3a;border-radius:22px;padding:22px 18px;margin-top:16px;flex:1;display:flex;flex-direction:column;}
+  .quiz .ask{font-size:15px;color:#8a8aa0;text-align:center;font-weight:700;}
+  .quiz .zh{font-size:46px;font-weight:900;text-align:center;margin:8px 0 4px;color:#3a3a55;}
+  .speak{display:block;margin:2px auto 14px;background:#eef1ff;color:#4a63d6;border:none;border-radius:999px;padding:9px 20px;font-size:16px;font-weight:800;cursor:pointer;}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:auto;}
+  .opt{background:#f2f4fb;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:16px;padding:20px 8px;font-size:26px;font-weight:900;cursor:pointer;transition:.1s;}
+  .opt:active{transform:scale(.97);}
+  .opt.right{background:#39d353;border-color:#2bb344;color:#fff;}
+  .opt.wrong{background:#ff5b6e;border-color:#e03b50;color:#fff;}
+  .toast{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(0,0,0,.82);padding:22px 34px;border-radius:20px;font-size:30px;font-weight:900;transition:transform .18s;z-index:9;text-align:center;}
+  .toast.show{transform:translate(-50%,-50%) scale(1);}
+  .foot{text-align:center;font-size:12px;opacity:.75;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- LOGIN -->
+  <div id="login">
+    <div class="logo">🥚</div>
+    <h1>單字寵物</h1>
+    <p>學英文單字，養出你自己的小龍！</p>
+    <input id="nameInput" maxlength="8" placeholder="輸入你的名字">
+    <button class="btn" onclick="start()">開始冒險 →</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" class="hidden">
+    <div class="pet">
+      <div class="food">🍎 <span id="food">0</span></div>
+      <div class="stage" id="stageName">蛋</div>
+      <div class="avatar" id="avatar">🥚</div>
+      <div class="pname" id="petOwner">小龍</div>
+      <div class="lv">Lv.<span id="lv">1</span></div>
+      <div class="bar"><i id="xpbar"></i></div>
+      <button class="btn feedbtn" id="feedBtn" onclick="feed()">🍖 餵牠吃（用 1 🍎）</button>
+    </div>
+
+    <div class="quiz">
+      <div class="ask">這個中文，英文是哪一個？</div>
+      <div class="zh" id="zh">蘋果</div>
+      <button class="speak" onclick="speakCurrent()">🔊 唸唸看</button>
+      <div class="opts" id="opts"></div>
+    </div>
+
+    <div class="foot">答對得 🍎 · 餵牠長大會進化 🥚→🦎→🐲→✨</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ---- 單字題庫（範例：國小低年級。之後後台可換年級/擴到7000） ----
+const WORDS = [
+  {en:"apple",zh:"蘋果"},{en:"cat",zh:"貓"},{en:"dog",zh:"狗"},{en:"book",zh:"書"},
+  {en:"red",zh:"紅色"},{en:"blue",zh:"藍色"},{en:"sun",zh:"太陽"},{en:"moon",zh:"月亮"},
+  {en:"water",zh:"水"},{en:"milk",zh:"牛奶"},{en:"hand",zh:"手"},{en:"fish",zh:"魚"},
+  {en:"bird",zh:"鳥"},{en:"egg",zh:"蛋"},{en:"tree",zh:"樹"},{en:"star",zh:"星星"},
+  {en:"ball",zh:"球"},{en:"cake",zh:"蛋糕"},{en:"rain",zh:"雨"},{en:"eye",zh:"眼睛"}
+];
+// ---- 進化階段 ----
+const STAGES = [
+  {min:1, emoji:"🥚", name:"蛋"},
+  {min:3, emoji:"🦎", name:"小龍寶寶"},
+  {min:6, emoji:"🐲", name:"小龍"},
+  {min:10,emoji:"✨🐉", name:"進化龍"}
+];
+const XP_PER_LV = 20, XP_PER_FEED = 8;
+
+let S = load();
+let cur = null;
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem("petSave")) || null; }catch(e){ return null; }
+}
+function save(){ localStorage.setItem("petSave", JSON.stringify(S)); }
+
+function start(){
+  const n = document.getElementById("nameInput").value.trim() || "小勇者";
+  if(!S) S = {name:n, xp:0, food:0, correct:0};
+  else S.name = n;
+  save();
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  render(); nextQ();
+}
+
+function stageFor(lv){ let s=STAGES[0]; for(const st of STAGES){ if(lv>=st.min) s=st; } return s; }
+function levelOf(){ return Math.floor(S.xp / XP_PER_LV) + 1; }
+
+function render(){
+  const lv = levelOf(), st = stageFor(lv);
+  document.getElementById("food").textContent = S.food;
+  document.getElementById("lv").textContent = lv;
+  document.getElementById("avatar").textContent = st.emoji;
+  document.getElementById("stageName").textContent = st.name;
+  document.getElementById("petOwner").textContent = S.name + " 的小龍";
+  const into = S.xp % XP_PER_LV;
+  document.getElementById("xpbar").style.width = (into/XP_PER_LV*100)+"%";
+  document.getElementById("feedBtn").disabled = S.food < 1;
+}
+
+function nextQ(){
+  cur = WORDS[Math.floor(Math.random()*WORDS.length)];
+  document.getElementById("zh").textContent = cur.zh;
+  // 3 個干擾選項
+  const opts = [cur.en];
+  while(opts.length < 4){
+    const w = WORDS[Math.floor(Math.random()*WORDS.length)].en;
+    if(!opts.includes(w)) opts.push(w);
+  }
+  shuffle(opts);
+  const box = document.getElementById("opts");
+  box.innerHTML = "";
+  opts.forEach(w=>{
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = w;
+    b.onclick = ()=>answer(b, w);
+    box.appendChild(b);
+  });
+  setTimeout(speakCurrent, 250);
+}
+
+function answer(btn, w){
+  document.querySelectorAll(".opt").forEach(o=>o.onclick=null);
+  if(w === cur.en){
+    btn.classList.add("right");
+    S.food += 1; S.correct += 1; save(); render();
+    toast("答對了！🍎+1");
+    setTimeout(nextQ, 850);
+  }else{
+    btn.classList.add("wrong");
+    document.querySelectorAll(".opt").forEach(o=>{ if(o.textContent===cur.en) o.classList.add("right"); });
+    toast("再試試看 💪");
+    setTimeout(nextQ, 1200);
+  }
+}
+
+function feed(){
+  if(S.food < 1) return;
+  const before = stageFor(levelOf()).name;
+  S.food -= 1; S.xp += XP_PER_FEED; save();
+  const after = stageFor(levelOf()).name;
+  const av = document.getElementById("avatar");
+  av.style.transform = "scale(1.35)";
+  setTimeout(()=>av.style.transform="scale(1)", 300);
+  render();
+  if(before !== after) toast("進化！變成「"+after+"」🎉");
+  else toast("牠吃得好開心 😋 +經驗");
+}
+
+function speakCurrent(){
+  if(!cur || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(cur.en);
+  u.lang = "en-US"; u.rate = .85;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 900);
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+// 若已有存檔，直接進遊戲、名字帶入
+if(S){ document.getElementById("nameInput").value = S.name; }
+</script>
+</body>
+</html>
