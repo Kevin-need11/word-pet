@@ -56,7 +56,17 @@
   .scene .c2{width:56px;height:18px;top:24%;right:16%;box-shadow:18px 5px 0 -4px #fff;animation:drift 11s ease-in-out infinite reverse;}
   .stagebadge{position:absolute;top:12px;left:14px;background:#ffcf3f;color:#5b3a00;font-weight:900;font-size:12px;padding:5px 12px;border-radius:999px;box-shadow:0 3px 8px rgba(180,140,0,.3);z-index:3;}
   .decor{position:absolute;inset:0;pointer-events:none;}
-  .decor span{position:absolute;font-size:34px;filter:drop-shadow(0 3px 3px rgba(60,90,60,.2));}
+  .decor span{position:absolute;font-size:54px;line-height:1;filter:drop-shadow(0 4px 4px rgba(60,90,60,.25));user-select:none;}
+  .decor span.editing{cursor:grab;animation:wiggle .4s ease-in-out infinite;}
+  .decor span.editing:active{cursor:grabbing;}
+  @keyframes wiggle{0%,100%{transform:translate(-50%,-50%) rotate(-4deg);}50%{transform:translate(-50%,-50%) rotate(4deg);}}
+  .scene.editing{outline:3px dashed #5b8def;outline-offset:-3px;}
+  .editbtn{position:absolute;top:70px;right:14px;z-index:6;background:rgba(255,255,255,.85);border:none;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:900;color:#4a63d6;cursor:pointer;box-shadow:0 2px 8px rgba(90,130,180,.2);}
+  .editbtn.on{background:#5b8def;color:#fff;}
+  .themecard{border:2px solid #e3e7f5;border-radius:12px;overflow:hidden;cursor:pointer;}
+  .themecard .sw{height:44px;} .themecard .tn{font-size:12px;font-weight:800;padding:4px 2px;text-align:center;color:#3a3a55;}
+  .themecard button{width:100%;border:none;padding:6px;font-weight:900;font-size:12px;cursor:pointer;background:#ffcf3f;color:#5b3a00;}
+  .themecard.owned button{background:#e7edf6;color:#5a6a8c;} .themecard.active button{background:#39d353;color:#fff;}
   .hero{display:flex;flex-direction:column;align-items:center;z-index:2;}
   .hero .avatar{font-size:130px;line-height:1;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
   .hero .avatar img{max-height:200px;max-width:74%;object-fit:contain;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
@@ -182,6 +192,7 @@
     <div class="scene" id="scene">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="stagebadge" id="stageName">蛋</div>
+      <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <div class="decor" id="decor"></div>
       <div class="hero" id="hero">
         <div class="avatar" id="avatar">🥚</div>
@@ -248,8 +259,10 @@
     <div class="shopgrid"><div class="shopitem"><div class="si">🥚</div><div class="sn">寵物蛋</div><button onclick="buyEgg()">🪙 <span id="eggCost">30</span></button></div></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🍎 買食物（餵寵物用）</div>
     <div class="shopgrid" id="foodGrid"></div>
-    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置</div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置（買了到主畫面按「✋佈置」拖擺放）</div>
     <div class="shopgrid" id="shopGrid"></div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🎨 場景主題（換花色）</div>
+    <div class="shopgrid" id="themeGrid"></div>
   </div></div>
 
   <div class="toast" id="toast"></div>
@@ -270,6 +283,15 @@ const FOODPACKS = [                    // 用金幣買食物
   {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
 ];
 const EGG_COST = 30;                   // 買一顆蛋（多養一隻）
+// 場景主題（換花色要花錢；買過可自由切換）
+const THEMES = [
+  {id:"meadow", name:"草原",  cost:0,  bg:"linear-gradient(180deg,#aedcff 0%,#d3efff 46%,#bff0c8 62%,#a6e39a 100%)"},
+  {id:"beach",  name:"海邊",  cost:40, bg:"linear-gradient(180deg,#8fd8ff 0%,#bfeeff 50%,#ffe9b0 66%,#ffd98a 100%)"},
+  {id:"sakura", name:"櫻花",  cost:50, bg:"linear-gradient(180deg,#ffd9ec 0%,#ffe9f4 48%,#d8f0c0 66%,#bfe6a0 100%)"},
+  {id:"night",  name:"星空",  cost:60, bg:"linear-gradient(180deg,#2b3a6b 0%,#3f4f8c 45%,#5a6b9c 62%,#4a6b52 100%)"},
+  {id:"sunset", name:"黃昏",  cost:60, bg:"linear-gradient(180deg,#ffb37a 0%,#ffd9a0 46%,#c9d98a 64%,#9ec87a 100%)"},
+  {id:"snow",   name:"雪地",  cost:70, bg:"linear-gradient(180deg,#cfe6ff 0%,#eaf6ff 50%,#f2f8ff 64%,#dfeaf2 100%)"}
+];
 // 打工/探險（單位：分鐘）——旅行青蛙式，離線也在跑
 const JOBS = [
   {id:"cafe", ic:"☕", name:"咖啡店打工", min:30, coin:12},
@@ -313,7 +335,16 @@ function migrate(s){
   if(!Array.isArray(s.grades) || !s.grades.length) s.grades = [1,2];
   if(!s.daily || s.daily.date!==today()) s.daily = {date:today(), n:0};
   if(!Array.isArray(s.home)) s.home = [];
+  // home 由「id 陣列」升級成「{id,x,y} 陣列」（可自由佈置座標）
+  s.home = s.home.map((h,i)=>{
+    if(typeof h==="string"){ const pos=DECOR_SLOTS[i%DECOR_SLOTS.length]; return {id:h, x: pos.l?parseFloat(pos.l): (100-parseFloat(pos.r)), y: 100-parseFloat(pos.b)}; }
+    if(h && typeof h.id==="string"){ if(typeof h.x!=="number") h.x=50; if(typeof h.y!=="number") h.y=70; return h; }
+    return null;
+  }).filter(Boolean);
   if(!Array.isArray(s.cards)) s.cards = [];
+  if(typeof s.theme!=="string") s.theme = "meadow";
+  if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
+  if(!s.themes.includes(s.theme)) s.theme = "meadow";
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
   if(!Array.isArray(s.pets) || !s.pets.length){
     const p = newPet("dragon");
@@ -385,6 +416,8 @@ function render(){
   av.innerHTML = `<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`;
   document.getElementById("xpbar").style.width = ((p.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
   document.getElementById("feedBtn").disabled = S.food < 1 || !!p.away;
+  const th = THEMES.find(t=>t.id===S.theme) || THEMES[0];
+  document.getElementById("scene").style.background = th.bg;
   ["hunger","mood","clean"].forEach(k=>{
     document.getElementById(k+"Bar").style.width = p.care[k]+"%";
     document.getElementById(k+"V").textContent = p.care[k];
@@ -407,15 +440,35 @@ function renderPetbar(){
   add.onclick=()=>openShop(); bar.appendChild(add);
 }
 
+let editMode=false;
 function renderDecor(){
   const d = document.getElementById("decor"); d.innerHTML="";
-  S.home.slice(0,DECOR_SLOTS.length).forEach((id,i)=>{
-    const item = SHOP.find(s=>s.id===id); if(!item) return;
+  d.style.pointerEvents = editMode ? "auto" : "none";
+  S.home.forEach((h,i)=>{
+    const item = SHOP.find(s=>s.id===h.id); if(!item) return;
     const sp = document.createElement("span"); sp.textContent = item.ic;
-    const pos = DECOR_SLOTS[i];
-    if(pos.l) sp.style.left=pos.l; if(pos.r) sp.style.right=pos.r; sp.style.bottom=pos.b;
+    sp.style.left = h.x+"%"; sp.style.top = h.y+"%"; sp.style.transform="translate(-50%,-50%)";
+    if(editMode){ sp.classList.add("editing"); sp.onpointerdown=(e)=>startDrag(e,i,sp); }
     d.appendChild(sp);
   });
+}
+function toggleEdit(){
+  editMode=!editMode;
+  const b=document.getElementById("editBtn"); b.textContent = editMode?"✓ 完成":"✋ 佈置"; b.classList.toggle("on",editMode);
+  document.getElementById("scene").classList.toggle("editing",editMode);
+  if(!editMode) save();
+  renderDecor();
+  toast(editMode? "拖曳家具擺放，好了按 ✓ 完成":"佈置完成 🏡");
+}
+function startDrag(e,i,el){
+  e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(_){}
+  el.onpointermove=(ev)=>{
+    const sc=document.getElementById("scene").getBoundingClientRect();
+    let x=(ev.clientX-sc.left)/sc.width*100, y=(ev.clientY-sc.top)/sc.height*100;
+    x=Math.max(5,Math.min(95,x)); y=Math.max(8,Math.min(92,y));
+    el.style.left=x+"%"; el.style.top=y+"%"; S.home[i].x=+x.toFixed(1); S.home[i].y=+y.toFixed(1);
+  };
+  el.onpointerup=(ev)=>{ el.onpointermove=null; el.onpointerup=null; try{ el.releasePointerCapture(ev.pointerId); }catch(_){} save(); };
 }
 
 /* 外出（打工/探險）狀態 */
@@ -447,13 +500,14 @@ function goAway(kind, job){
 }
 function claimAway(){
   const p=P(), a=p.away; if(!a) return;
-  S.coins += a.coin;
+  const gain = careBonus()? Math.round(a.coin*1.2) : a.coin;   // 照顧好→打工探險多賺2成
+  S.coins += gain;
   let extra = "";
   if(a.kind==="trip" && words.length){ const w = words[Math.floor(Math.random()*words.length)];
     if(!S.cards.includes(w.en)) S.cards.push(w.en); extra = "＋單字明信片「"+w.en+"」📮"; }
   p.care.mood = Math.min(100, p.care.mood+15);
   p.away = null; save(); render();
-  toast("回來了！🪙+"+a.coin+" "+extra);
+  toast("回來了！🪙+"+gain+" "+extra);
 }
 
 function openWork(){ if(guardAway())return; const l=document.getElementById("jobList"); l.innerHTML="";
@@ -484,14 +538,32 @@ function openShop(){
   // 家佈置
   const g=document.getElementById("shopGrid"); g.innerHTML="";
   SHOP.forEach(item=>{
-    const owned = S.home.includes(item.id);
+    const owned = S.home.some(h=>h.id===item.id);
     const d=document.createElement("div"); d.className="shopitem"+(owned?" owned":"");
     d.innerHTML = `<div class="si">${item.ic}</div><div class="sn">${item.name}</div>`;
     const b=document.createElement("button"); b.textContent = owned?"已擁有":("🪙 "+item.cost);
     if(!owned) b.onclick=()=>buyItem(item); d.appendChild(b); g.appendChild(d);
   });
+  // 場景主題
+  const tg=document.getElementById("themeGrid"); tg.innerHTML="";
+  THEMES.forEach(t=>{
+    const owned = S.themes.includes(t.id), active = S.theme===t.id;
+    const d=document.createElement("div"); d.className="themecard"+(owned?" owned":"")+(active?" active":"");
+    d.innerHTML = `<div class="sw" style="background:${t.bg}"></div><div class="tn">${t.name}</div>`;
+    const b=document.createElement("button");
+    b.textContent = active? "使用中" : (owned? "使用" : ("🪙 "+t.cost));
+    b.onclick = ()=> active? null : (owned? useTheme(t) : buyTheme(t));
+    d.appendChild(b); tg.appendChild(d);
+  });
   openSheet("shopWrap");
 }
+function buyTheme(t){
+  if(S.coins < t.cost){ toast("金幣不夠買主題（🪙"+t.cost+"）"); return; }
+  S.coins -= t.cost; S.themes.push(t.id); S.theme = t.id; save();
+  document.getElementById("shopCoins").textContent = S.coins; openShop(); render();
+  toast("換上「"+t.name+"」場景 🎨");
+}
+function useTheme(t){ S.theme = t.id; save(); openShop(); render(); toast("換成「"+t.name+"」🎨"); }
 function buyFood(p){
   if(S.coins < p.cost){ toast("金幣不夠，去學習或打工賺 🪙"); return; }
   S.coins -= p.cost; S.food += p.n; save();
@@ -506,20 +578,24 @@ function buyEgg(){
   toast("買了一顆蛋 🥚 開始養新寵物！");
 }
 function buyItem(item){
-  if(S.home.includes(item.id)) return;
+  if(S.home.some(h=>h.id===item.id)) return;
   if(S.coins < item.cost){ toast("金幣不夠，去打工賺 💼"); return; }
-  S.coins -= item.cost; S.home.push(item.id); save();
+  S.coins -= item.cost; S.home.push({id:item.id, x:30+Math.random()*40, y:62+Math.random()*22}); save();
   document.getElementById("shopCoins").textContent = S.coins;
-  openShop(); render(); toast(item.ic+" 買下了！擺進家裡 🏡");
+  openShop(); render(); toast(item.ic+" 買下了！到主畫面按「✋佈置」擺放 🏡");
 }
 
+/* 照顧加成（拉不推）：肚子＋心情都夠高 → 學習/打工多賺 */
+function careBonus(){ const c=P().care; return (c.hunger>=60 && c.mood>=60); }
+
 /* 學習 */
-function openLearn(){ openSheet("learnWrap"); setMode(mode); }
+function openLearn(){ openSheet("learnWrap"); setMode(mode); if(careBonus()) toast("✨ 照顧得好，學習多賺！"); }
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeSheet(id){ document.getElementById(id).classList.add("hidden"); render(); }
 
 function gotRight(bonus){
-  const n = bonus||1; S.coins += n; S.correct += 1;   // 答對單字 → 賺錢（不是直接給食物）
+  let n = bonus||1; if(careBonus()) n += 1;           // 照顧得好→多賺（拉不推）
+  S.coins += n; S.correct += 1;                        // 答對單字 → 賺錢（不是直接給食物）
   S.daily.n = (S.daily.n||0) + 1;
   if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
   save(); render();
