@@ -39,6 +39,14 @@
   .cbar>i{display:block;height:100%;width:0;transition:width .4s;border-radius:999px;}
   .cbar.hunger>i{background:#ff9e5b;} .cbar.mood>i{background:#ffcf3f;} .cbar.clean>i{background:#5ec8ff;}
 
+  /* 多寵物切換列 */
+  .petbar{display:flex;gap:6px;padding:0 14px 4px;overflow-x:auto;}
+  .pchip{flex:none;width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;border:2px solid #e6ebf5;box-shadow:0 2px 6px rgba(90,130,180,.12);position:relative;overflow:hidden;}
+  .pchip img{max-width:36px;max-height:36px;object-fit:contain;}
+  .pchip.on{border-color:#5b8def;}
+  .pchip .dot{position:absolute;top:2px;right:3px;font-size:10px;}
+  .pchip.add{background:#fff6da;color:#c79200;font-weight:900;border-color:#ffe28a;font-size:24px;}
+
   .scene{flex:1;margin:4px 14px;border-radius:26px;position:relative;overflow:hidden;
     background:linear-gradient(180deg,#aedcff 0%,#d3efff 46%,#bff0c8 62%,#a6e39a 100%);
     box-shadow:inset 0 2px 0 #fff,0 6px 18px rgba(90,140,180,.2);display:flex;align-items:center;justify-content:center;}
@@ -169,6 +177,8 @@
       <div class="cchip" onclick="careUp('clean')"><div class="ct"><span>🧼 乾淨</span><span id="cleanV">100</span></div><div class="cbar clean"><i id="cleanBar"></i></div></div>
     </div>
 
+    <div class="petbar" id="petbar"></div>
+
     <div class="scene" id="scene">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="stagebadge" id="stageName">蛋</div>
@@ -234,7 +244,9 @@
   <div class="sheetwrap hidden" id="shopWrap"><div class="sheet2">
     <div class="grab"></div>
     <div class="lhead"><div class="ltitle">🛒 商店（🪙 <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
-    <div style="font-weight:900;font-size:14px;margin:2px 0 8px;">🍎 買食物（餵寵物用）</div>
+    <div style="font-weight:900;font-size:14px;margin:2px 0 8px;">🥚 買蛋（多養一隻）</div>
+    <div class="shopgrid"><div class="shopitem"><div class="si">🥚</div><div class="sn">寵物蛋</div><button onclick="buyEgg()">🪙 <span id="eggCost">30</span></button></div></div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🍎 買食物（餵寵物用）</div>
     <div class="shopgrid" id="foodGrid"></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置</div>
     <div class="shopgrid" id="shopGrid"></div>
@@ -257,6 +269,7 @@ const SAVE_VER = 3;                    // 存檔版本（升級用）
 const FOODPACKS = [                    // 用金幣買食物
   {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
 ];
+const EGG_COST = 30;                   // 買一顆蛋（多養一隻）
 // 打工/探險（單位：分鐘）——旅行青蛙式，離線也在跑
 const JOBS = [
   {id:"cafe", ic:"☕", name:"咖啡店打工", min:30, coin:12},
@@ -287,21 +300,38 @@ function save(){ localStorage.setItem("petSave", JSON.stringify(S)); }
 function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function now(){ return Date.now(); }
 
+function newPet(species){ return {id:"p"+now()+Math.floor(Math.random()*1000), species:species||"dragon", xp:0, care:{hunger:100,mood:100,clean:100,ts:now()}, away:null}; }
+function P(){ return S.pets[S.active]; }
+
 /* 舊存檔自動升級：任何缺的欄位補預設，不刪既有進度。改版不必清資料。 */
 function migrate(s){
   s = s || {};
   if(typeof s.name!=="string") s.name = "小勇者";
-  if(typeof s.xp!=="number") s.xp = 0;
   if(typeof s.food!=="number") s.food = 0;
   if(typeof s.coins!=="number") s.coins = 0;
   if(typeof s.correct!=="number") s.correct = 0;
   if(!Array.isArray(s.grades) || !s.grades.length) s.grades = [1,2];
   if(!s.daily || s.daily.date!==today()) s.daily = {date:today(), n:0};
-  if(!s.care || typeof s.care.hunger!=="number") s.care = {hunger:100,mood:100,clean:100,ts:now()};
-  if(typeof s.care.ts!=="number") s.care.ts = now();
   if(!Array.isArray(s.home)) s.home = [];
   if(!Array.isArray(s.cards)) s.cards = [];
-  if(s.away!==null && (!s.away || typeof s.away.until!=="number")) s.away = null;
+  // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
+  if(!Array.isArray(s.pets) || !s.pets.length){
+    const p = newPet("dragon");
+    if(typeof s.xp==="number") p.xp = s.xp;
+    if(s.care && typeof s.care.hunger==="number") p.care = s.care;
+    if(s.away && typeof s.away.until==="number") p.away = s.away;
+    s.pets = [p];
+  }
+  s.pets.forEach(p=>{
+    if(typeof p.xp!=="number") p.xp = 0;
+    if(!p.species) p.species = "dragon";
+    if(!p.care || typeof p.care.hunger!=="number") p.care = {hunger:100,mood:100,clean:100,ts:now()};
+    if(typeof p.care.ts!=="number") p.care.ts = now();
+    if(p.away!==null && (!p.away || typeof p.away.until!=="number")) p.away = null;
+    if(!p.id) p.id = "p"+Math.floor(Math.random()*1e9);
+  });
+  if(typeof s.active!=="number" || s.active<0 || s.active>=s.pets.length) s.active = 0;
+  delete s.xp; delete s.care; delete s.away;   // 移除舊頂層單寵欄位
   s.ver = SAVE_VER;
   return s;
 }
@@ -319,53 +349,60 @@ function start(){
 }
 
 function stageFor(lv){ let s=STAGES[0]; for(const st of STAGES){ if(lv>=st.min) s=st; } return s; }
-function levelOf(){ return Math.floor(S.xp / XP_PER_LV) + 1; }
+function levelOf(){ return Math.floor(P().xp / XP_PER_LV) + 1; }
+function setActive(i){ if(i<0||i>=S.pets.length) return; S.active=i; save(); render(); }
 
-/* 狀態隨真實時間衰減 */
+/* 狀態隨真實時間衰減（所有寵物一起老，離線也算） */
 function decayCare(){
-  const c = S.care; const mins = (now() - c.ts)/60000;
-  const dec = Math.floor(mins / CARE_DECAY_MIN);
-  if(dec > 0){
-    c.hunger = Math.max(0, c.hunger - dec);
-    c.mood   = Math.max(0, c.mood - dec);
-    c.clean  = Math.max(0, c.clean - dec);
-    c.ts = c.ts + dec*CARE_DECAY_MIN*60000;
-    save();
-  }
+  let changed=false;
+  S.pets.forEach(p=>{
+    const c=p.care; const dec=Math.floor((now()-c.ts)/60000/CARE_DECAY_MIN);
+    if(dec>0){ c.hunger=Math.max(0,c.hunger-dec); c.mood=Math.max(0,c.mood-dec); c.clean=Math.max(0,c.clean-dec); c.ts=c.ts+dec*CARE_DECAY_MIN*60000; changed=true; }
+  });
+  if(changed) save();
 }
 function careUp(k){
-  if(S.away){ toast("牠出門了，等牠回來 🕐"); return; }
-  if(k==="hunger"){ if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; } S.food-=1; S.care.hunger=Math.min(100,S.care.hunger+20); toast("餵飽一點 😋"); }
-  if(k==="mood"){ S.care.mood=Math.min(100,S.care.mood+20); toast("陪牠玩，好開心 🎾"); }
-  if(k==="clean"){ S.care.clean=Math.min(100,S.care.clean+25); toast("洗香香 🧼✨"); }
+  const p=P();
+  if(p.away){ toast("牠出門了，等牠回來 🕐"); return; }
+  if(k==="hunger"){ if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; } S.food-=1; p.care.hunger=Math.min(100,p.care.hunger+20); toast("餵飽一點 😋"); }
+  if(k==="mood"){ p.care.mood=Math.min(100,p.care.mood+20); toast("陪牠玩，好開心 🎾"); }
+  if(k==="clean"){ p.care.clean=Math.min(100,p.care.clean+25); toast("洗香香 🧼✨"); }
   save(); render();
 }
 
 function render(){
-  const lv = levelOf(), st = stageFor(lv);
+  const p = P(), lv = levelOf(), st = stageFor(lv);
   document.getElementById("food").textContent = S.food;
   document.getElementById("coins").textContent = S.coins;
   document.getElementById("lv").textContent = lv;
   document.getElementById("lv2").textContent = lv;
   document.getElementById("stageName").textContent = st.name;
-  document.getElementById("petOwner").textContent = S.name + " 的小龍";
+  document.getElementById("petOwner").textContent = S.name + " 的寵物";
   document.getElementById("petName").textContent = st.name;
   const av = document.getElementById("avatar");
   av.innerHTML = `<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`;
-  document.getElementById("xpbar").style.width = ((S.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
-  document.getElementById("feedBtn").disabled = S.food < 1 || !!S.away;
-  // care bars
+  document.getElementById("xpbar").style.width = ((p.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
+  document.getElementById("feedBtn").disabled = S.food < 1 || !!p.away;
   ["hunger","mood","clean"].forEach(k=>{
-    document.getElementById(k+"Bar").style.width = S.care[k]+"%";
-    document.getElementById(k+"V").textContent = S.care[k];
+    document.getElementById(k+"Bar").style.width = p.care[k]+"%";
+    document.getElementById(k+"V").textContent = p.care[k];
   });
-  // daily
   if(S.daily.date !== today()) S.daily = {date:today(), n:0};
   const dn = Math.min(S.daily.n, DAILY_GOAL);
   document.getElementById("dailyBar").style.width = (dn/DAILY_GOAL*100)+"%";
   document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
-  renderDecor();
-  renderAway();
+  renderPetbar(); renderDecor(); renderAway();
+}
+function renderPetbar(){
+  const bar = document.getElementById("petbar"); bar.innerHTML="";
+  S.pets.forEach((p,i)=>{
+    const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv);
+    const c=document.createElement("div"); c.className="pchip"+(i===S.active?" on":"");
+    c.innerHTML=`<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`+(p.away?'<span class="dot">🕐</span>':'');
+    c.onclick=()=>setActive(i); bar.appendChild(c);
+  });
+  const add=document.createElement("div"); add.className="pchip add"; add.textContent="＋"; add.title="買蛋養新的";
+  add.onclick=()=>openShop(); bar.appendChild(add);
 }
 
 function renderDecor(){
@@ -381,16 +418,15 @@ function renderDecor(){
 
 /* 外出（打工/探險）狀態 */
 function renderAway(){
-  const away = document.getElementById("away");
-  const btns = ["btnLearn","btnWork","btnTrip"];
-  if(!S.away){ away.classList.add("hidden"); document.getElementById("hero").style.visibility="visible"; return; }
+  const p = P(), away = document.getElementById("away");
+  if(!p.away){ away.classList.add("hidden"); document.getElementById("hero").style.visibility="visible"; return; }
   away.classList.remove("hidden"); document.getElementById("hero").style.visibility="hidden";
-  document.getElementById("awayIcon").textContent = S.away.ic;
-  document.getElementById("awayTxt").textContent = S.away.name + "…";
-  const done = now() >= S.away.until;
+  document.getElementById("awayIcon").textContent = p.away.ic;
+  document.getElementById("awayTxt").textContent = p.away.name + "…";
+  const done = now() >= p.away.until;
   document.getElementById("awayTimer").classList.toggle("hidden", done);
   document.getElementById("awayClaim").classList.toggle("hidden", !done);
-  if(!done) document.getElementById("awayTimer").textContent = fmt(S.away.until - now());
+  if(!done) document.getElementById("awayTimer").textContent = fmt(p.away.until - now());
 }
 function fmt(ms){ const s=Math.max(0,Math.ceil(ms/1000)); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;
   return (h>0?h+":":"")+String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0"); }
@@ -401,20 +437,20 @@ function onTick(){ decayCare(); renderAway();
 }
 
 function goAway(kind, job){
-  if(S.away){ toast("牠已經出門了"); return; }
-  S.away = {kind, id:job.id, ic:job.ic, name:job.name, coin:job.coin, until: now() + job.min*60000};
+  const p=P();
+  if(p.away){ toast("牠已經出門了"); return; }
+  p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin:job.coin, until: now() + job.min*60000};
   save(); closeSheet(kind==="work"?"workWrap":"tripWrap"); render();
   toast(job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
 }
 function claimAway(){
-  const a = S.away; if(!a) return;
+  const p=P(), a=p.away; if(!a) return;
   S.coins += a.coin;
   let extra = "";
   if(a.kind==="trip" && words.length){ const w = words[Math.floor(Math.random()*words.length)];
     if(!S.cards.includes(w.en)) S.cards.push(w.en); extra = "＋單字明信片「"+w.en+"」📮"; }
-  // 回來心情變好
-  S.care.mood = Math.min(100, S.care.mood+15);
-  S.away = null; save(); render();
+  p.care.mood = Math.min(100, p.care.mood+15);
+  p.away = null; save(); render();
   toast("回來了！🪙+"+a.coin+" "+extra);
 }
 
@@ -422,7 +458,7 @@ function openWork(){ if(guardAway())return; const l=document.getElementById("job
   JOBS.forEach(j=> l.appendChild(jobRow(j,"work"))); openSheet("workWrap"); }
 function openTrip(){ if(guardAway())return; const l=document.getElementById("tripList"); l.innerHTML="";
   TRIPS.forEach(j=> l.appendChild(jobRow(j,"trip"))); openSheet("tripWrap"); }
-function guardAway(){ if(S.away){ toast("牠出門了，等牠回來 🕐"); return true; } return false; }
+function guardAway(){ if(P().away){ toast("牠出門了，等牠回來 🕐"); return true; } return false; }
 function jobRow(j,kind){
   const div=document.createElement("div"); div.className="jobrow";
   const dur = j.min>=60? (j.min/60)+" 小時" : j.min+" 分鐘";
@@ -434,6 +470,7 @@ function jobRow(j,kind){
 /* 商店：買食物 + 家佈置 */
 function openShop(){
   document.getElementById("shopCoins").textContent = S.coins;
+  document.getElementById("eggCost").textContent = EGG_COST;
   // 買食物
   const fg=document.getElementById("foodGrid"); fg.innerHTML="";
   FOODPACKS.forEach(p=>{
@@ -458,6 +495,13 @@ function buyFood(p){
   S.coins -= p.cost; S.food += p.n; save();
   document.getElementById("shopCoins").textContent = S.coins;
   render(); toast("買到食物 🍎+"+p.n);
+}
+function buyEgg(){
+  if(S.coins < EGG_COST){ toast("金幣不夠買蛋（需 🪙"+EGG_COST+"）"); return; }
+  S.coins -= EGG_COST; S.pets.push(newPet("dragon")); S.active = S.pets.length-1; save();
+  document.getElementById("shopCoins").textContent = S.coins;
+  closeSheet("shopWrap"); render();
+  toast("買了一顆蛋 🥚 開始養新寵物！");
 }
 function buyItem(item){
   if(S.home.includes(item.id)) return;
@@ -526,7 +570,7 @@ function matchTap(b,c){ if(b.classList.contains("done")) return;
   else{ b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b; setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null; } }
 
 function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; }
-  const before=stageFor(levelOf()).name; S.food-=1; S.xp+=XP_PER_FEED; S.care.hunger=Math.min(100,S.care.hunger+15); save();
+  const p=P(); const before=stageFor(levelOf()).name; S.food-=1; p.xp+=XP_PER_FEED; p.care.hunger=Math.min(100,p.care.hunger+15); save();
   const after=stageFor(levelOf()).name; const av=document.getElementById("avatar"); av.style.transform="scale(1.18)"; setTimeout(()=>av.style.transform="",300); render();
   if(before!==after) toast("進化！變成「"+after+"」🎉"); else toast("牠吃得好開心 😋"); }
 
