@@ -75,6 +75,9 @@
   .scene.editing{outline:3px dashed #5b8def;outline-offset:-3px;}
   .editbtn{position:absolute;top:70px;right:14px;z-index:6;background:rgba(255,255,255,.85);border:none;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:900;color:#4a63d6;cursor:pointer;box-shadow:0 2px 8px rgba(90,130,180,.2);}
   .editbtn.on{background:#5b8def;color:#fff;}
+  .piggy{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;background:#ffcf3f;color:#5b3a00;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9a900;animation:pigbob 1s ease-in-out infinite;}
+  .piggy:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #d9a900;}
+  @keyframes pigbob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-5px);}}
   .themecard{border:2px solid #e3e7f5;border-radius:12px;overflow:hidden;cursor:pointer;}
   .themecard .sw{height:44px;} .themecard .tn{font-size:12px;font-weight:800;padding:4px 2px;text-align:center;color:#3a3a55;}
   .themecard button{width:100%;border:none;padding:6px;font-weight:900;font-size:12px;cursor:pointer;background:#ffcf3f;color:#5b3a00;}
@@ -216,6 +219,7 @@
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
+      <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
       <div class="decor" id="decor"></div>
       <div class="pets" id="pets"></div>
       <div class="petname" id="petName">小龍</div>
@@ -308,6 +312,7 @@ const XP_PER_LV = 50, XP_PER_FEED = 5, DAILY_GOAL = 10;
 const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
 const MASTER_N = 3;                    // 一個字答對幾次算「學會」（圖鑑點亮）
 const SPECIALTY_BONUS = 1.5;           // 做擅長的工作多賺 50%
+const PIGGY_RATE_MIN = 15, PIGGY_CAP = 20;  // 離線孵幣：每15分1幣、上限20（旅蛙三葉草式，金額小別搶學習）
 const SAVE_VER = 3;                    // 存檔版本（升級用）
 const FOODPACKS = [                    // 用金幣買食物
   {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
@@ -375,6 +380,7 @@ function migrate(s){
   }).filter(Boolean);
   if(!Array.isArray(s.cards)) s.cards = [];
   if(!s.wordStats || typeof s.wordStats!=="object") s.wordStats = {};
+  if(!s.piggy || typeof s.piggy.ts!=="number") s.piggy = {ts: now()};
   if(typeof s.bgm!=="boolean") s.bgm = true;
   if(typeof s.theme!=="string") s.theme = "meadow";
   if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
@@ -467,8 +473,12 @@ function render(){
   const dn = Math.min(S.daily.n, DAILY_GOAL);
   document.getElementById("dailyBar").style.width = (dn/DAILY_GOAL*100)+"%";
   document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
+  const pa=piggyAvail(), pb=document.getElementById("piggyBtn");
+  if(pa>0 && !editMode){ pb.classList.remove("hidden"); document.getElementById("piggyN").textContent=pa; } else pb.classList.add("hidden");
   renderPets(); renderDecor(); renderAway();
 }
+function piggyAvail(){ if(!S.piggy) return 0; return Math.min(PIGGY_CAP, Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
+function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
 const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:44},{x:63,y:46},{x:20,y:46},{x:80,y:46},{x:50,y:72}];
 function renderPets(){
   const box = document.getElementById("pets"); box.innerHTML="";
