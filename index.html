@@ -196,7 +196,7 @@
       <button class="act feed" id="feedBtn" onclick="feed()"><span class="ic">🍖</span>餵食</button>
       <button class="act work" id="btnWork" onclick="openWork()"><span class="ic">💼</span>打工</button>
       <button class="act" id="btnTrip" onclick="openTrip()"><span class="ic">🗺️</span>探險</button>
-      <button class="act" onclick="openShop()"><span class="ic">🏡</span>佈置</button>
+      <button class="act" onclick="openShop()"><span class="ic">🛒</span>商店</button>
     </div>
   </div>
 
@@ -230,10 +230,13 @@
     <div id="tripList"></div>
   </div></div>
 
-  <!-- 家佈置商店 -->
+  <!-- 商店：買食物 + 家佈置 -->
   <div class="sheetwrap hidden" id="shopWrap"><div class="sheet2">
     <div class="grab"></div>
-    <div class="lhead"><div class="ltitle">🏡 家佈置商店（🪙 <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
+    <div class="lhead"><div class="ltitle">🛒 商店（🪙 <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
+    <div style="font-weight:900;font-size:14px;margin:2px 0 8px;">🍎 買食物（餵寵物用）</div>
+    <div class="shopgrid" id="foodGrid"></div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置</div>
     <div class="shopgrid" id="shopGrid"></div>
   </div></div>
 
@@ -250,6 +253,10 @@ const STAGES = [
 ];
 const XP_PER_LV = 50, XP_PER_FEED = 5, DAILY_GOAL = 10;
 const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
+const SAVE_VER = 3;                    // 存檔版本（升級用）
+const FOODPACKS = [                    // 用金幣買食物
+  {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
+];
 // 打工/探險（單位：分鐘）——旅行青蛙式，離線也在跑
 const JOBS = [
   {id:"cafe", ic:"☕", name:"咖啡店打工", min:30, coin:12},
@@ -275,20 +282,34 @@ const DECOR_SLOTS = [ // 場景中固定擺放位置
 
 let S = load(), words = [], cur = null, mode = "pick", tick = null;
 
-function load(){ try{ return JSON.parse(localStorage.getItem("petSave")) || null; }catch(e){ return null; } }
+function load(){ try{ const raw=JSON.parse(localStorage.getItem("petSave")); return raw? migrate(raw): null; }catch(e){ return null; } }
 function save(){ localStorage.setItem("petSave", JSON.stringify(S)); }
 function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function now(){ return Date.now(); }
 
+/* 舊存檔自動升級：任何缺的欄位補預設，不刪既有進度。改版不必清資料。 */
+function migrate(s){
+  s = s || {};
+  if(typeof s.name!=="string") s.name = "小勇者";
+  if(typeof s.xp!=="number") s.xp = 0;
+  if(typeof s.food!=="number") s.food = 0;
+  if(typeof s.coins!=="number") s.coins = 0;
+  if(typeof s.correct!=="number") s.correct = 0;
+  if(!Array.isArray(s.grades) || !s.grades.length) s.grades = [1,2];
+  if(!s.daily || s.daily.date!==today()) s.daily = {date:today(), n:0};
+  if(!s.care || typeof s.care.hunger!=="number") s.care = {hunger:100,mood:100,clean:100,ts:now()};
+  if(typeof s.care.ts!=="number") s.care.ts = now();
+  if(!Array.isArray(s.home)) s.home = [];
+  if(!Array.isArray(s.cards)) s.cards = [];
+  if(s.away!==null && (!s.away || typeof s.away.until!=="number")) s.away = null;
+  s.ver = SAVE_VER;
+  return s;
+}
+
 function start(){
   const n = document.getElementById("nameInput").value.trim() || "小勇者";
-  if(!S) S = {name:n, xp:0, food:0, coins:0, correct:0, grades:[1,2], daily:{date:today(),n:0},
-              care:{hunger:100,mood:100,clean:100,ts:now()}, away:null, home:[], cards:[]};
+  if(!S) S = migrate({name:n});
   else S.name = n;
-  S.grades = S.grades||[1,2];
-  if(!S.daily || S.daily.date !== today()) S.daily = {date:today(), n:0};
-  if(!S.care) S.care = {hunger:100,mood:100,clean:100,ts:now()};
-  if(S.coins==null) S.coins=0; if(!S.home) S.home=[]; if(!S.cards) S.cards=[];
   save();
   words = getWords(S.grades);
   document.getElementById("login").classList.add("hidden");
@@ -314,7 +335,7 @@ function decayCare(){
 }
 function careUp(k){
   if(S.away){ toast("牠出門了，等牠回來 🕐"); return; }
-  if(k==="hunger"){ if(S.food<1){ toast("沒食物了，去學習賺 🍎"); return; } S.food-=1; S.care.hunger=Math.min(100,S.care.hunger+20); toast("餵飽一點 😋"); }
+  if(k==="hunger"){ if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; } S.food-=1; S.care.hunger=Math.min(100,S.care.hunger+20); toast("餵飽一點 😋"); }
   if(k==="mood"){ S.care.mood=Math.min(100,S.care.mood+20); toast("陪牠玩，好開心 🎾"); }
   if(k==="clean"){ S.care.clean=Math.min(100,S.care.clean+25); toast("洗香香 🧼✨"); }
   save(); render();
@@ -410,9 +431,18 @@ function jobRow(j,kind){
   div.appendChild(b); return div;
 }
 
-/* 家佈置商店 */
-function openShop(){ if(guardAway())return;
+/* 商店：買食物 + 家佈置 */
+function openShop(){
   document.getElementById("shopCoins").textContent = S.coins;
+  // 買食物
+  const fg=document.getElementById("foodGrid"); fg.innerHTML="";
+  FOODPACKS.forEach(p=>{
+    const d=document.createElement("div"); d.className="shopitem";
+    d.innerHTML = `<div class="si">🍎</div><div class="sn">食物 ×${p.n}</div>`;
+    const b=document.createElement("button"); b.textContent = "🪙 "+p.cost; b.onclick=()=>buyFood(p);
+    d.appendChild(b); fg.appendChild(d);
+  });
+  // 家佈置
   const g=document.getElementById("shopGrid"); g.innerHTML="";
   SHOP.forEach(item=>{
     const owned = S.home.includes(item.id);
@@ -423,6 +453,12 @@ function openShop(){ if(guardAway())return;
   });
   openSheet("shopWrap");
 }
+function buyFood(p){
+  if(S.coins < p.cost){ toast("金幣不夠，去學習或打工賺 🪙"); return; }
+  S.coins -= p.cost; S.food += p.n; save();
+  document.getElementById("shopCoins").textContent = S.coins;
+  render(); toast("買到食物 🍎+"+p.n);
+}
 function buyItem(item){
   if(S.home.includes(item.id)) return;
   if(S.coins < item.cost){ toast("金幣不夠，去打工賺 💼"); return; }
@@ -432,12 +468,12 @@ function buyItem(item){
 }
 
 /* 學習 */
-function openLearn(){ if(guardAway())return; openSheet("learnWrap"); setMode(mode); }
+function openLearn(){ openSheet("learnWrap"); setMode(mode); }
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeSheet(id){ document.getElementById(id).classList.add("hidden"); render(); }
 
 function gotRight(bonus){
-  const n = bonus||1; S.food += n; S.correct += n;
+  const n = bonus||1; S.coins += n; S.correct += 1;   // 答對單字 → 賺錢（不是直接給食物）
   S.daily.n = (S.daily.n||0) + 1;
   if(S.daily.n === DAILY_GOAL){ S.coins += 10; toast("每日任務完成！🎁 🪙+10"); }
   save(); render();
@@ -454,7 +490,7 @@ function renderPick(){
     <button class="speak" onclick="speak(cur.en)">🔊 唸唸看</button><div class="opts" id="opts"></div>`;
   const box=document.getElementById("opts");
   opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
-    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("答對了！🍎+1"); setTimeout(renderPick,800);}
+    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("答對了！🪙+1"); setTimeout(renderPick,800);}
       else{ b.classList.add("wrong"); markRight(cur.en); toast("再試試看 💪"); setTimeout(renderPick,1100);} }; box.appendChild(b); });
   setTimeout(()=>speak(cur.en),250);
 }
@@ -468,13 +504,13 @@ function renderSpell(){ cur=pickWord(); spellPicked=[]; const bank=shuffle(cur.e
 function drawSlots(){ const s=document.getElementById("slots"); s.innerHTML="";
   cur.en.split("").forEach((_,i)=>{ const d=document.createElement("div"); d.className="slot"+(spellPicked[i]?" filled":""); d.textContent=spellPicked[i]||""; s.appendChild(d); }); }
 function spellTap(ch,btn){ if(spellPicked.length>=cur.en.length) return; spellPicked.push(ch); btn.classList.add("used"); drawSlots();
-  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ gotRight(2); speak(cur.en); toast("拼對了！🍎+2"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
+  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ gotRight(2); speak(cur.en); toast("拼對了！🪙+2"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
 function spellUndo(){ if(!spellPicked.length) return; spellPicked.pop(); const u=document.querySelectorAll("#letters .lt.used"); if(u.length) u[u.length-1].classList.remove("used"); drawSlots(); }
 function renderListen(){ cur=pickWord(); const opts=[cur,...distractors(cur.en,3).map(en=>words.find(w=>w.en===en))]; shuffle(opts);
   document.getElementById("quiz").innerHTML=`<div class="ask">聽發音，選出正確的中文意思</div><button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button><div class="opts" id="opts"></div>`;
   const box=document.getElementById("opts");
   opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.style.fontSize="20px"; b.textContent=w.zh;
-    b.onclick=()=>{ lock(); if(w.en===cur.en){ b.classList.add("right"); gotRight(2); toast("聽對了！🍎+2"); setTimeout(renderListen,800);}
+    b.onclick=()=>{ lock(); if(w.en===cur.en){ b.classList.add("right"); gotRight(2); toast("聽對了！🪙+2"); setTimeout(renderListen,800);}
       else{ b.classList.add("wrong"); document.querySelectorAll(".opt").forEach(o=>{if(o.textContent===cur.zh)o.classList.add("right");}); toast("再聽聽看 💪"); setTimeout(renderListen,1100);} }; box.appendChild(b); });
   setTimeout(()=>speak(cur.en),300); }
 let mSel=null,mLeft=0;
@@ -486,10 +522,10 @@ function matchTap(b,c){ if(b.classList.contains("done")) return;
   if(!mSel){ mSel={b,c}; b.classList.add("sel"); if(c.t===c.en) speak(c.en); return; }
   if(mSel.b===b){ b.classList.remove("sel"); mSel=null; return; }
   if(mSel.c.k===c.k){ b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done"); mSel=null; mLeft--; gotRight(1); speak(c.en);
-    if(mLeft<=0){ toast("全部配對完成！🍎+1"); S.food+=1; save(); render(); setTimeout(renderMatch,900);} }
+    if(mLeft<=0){ toast("全部配對完成！🪙+1"); S.coins+=1; save(); render(); setTimeout(renderMatch,900);} }
   else{ b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b; setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null; } }
 
-function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物，去學習賺 🍎"); return; }
+function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; }
   const before=stageFor(levelOf()).name; S.food-=1; S.xp+=XP_PER_FEED; S.care.hunger=Math.min(100,S.care.hunger+15); save();
   const after=stageFor(levelOf()).name; const av=document.getElementById("avatar"); av.style.transform="scale(1.18)"; setTimeout(()=>av.style.transform="",300); render();
   if(before!==after) toast("進化！變成「"+after+"」🎉"); else toast("牠吃得好開心 😋"); }
