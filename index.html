@@ -55,7 +55,19 @@
   .scene .c1{width:76px;height:24px;top:15%;left:12%;box-shadow:24px 6px 0 -4px #fff,-20px 6px 0 -6px #fff;animation:drift 9s ease-in-out infinite;}
   .scene .c2{width:56px;height:18px;top:24%;right:16%;box-shadow:18px 5px 0 -4px #fff;animation:drift 11s ease-in-out infinite reverse;}
   .stagebadge{position:absolute;top:12px;left:14px;background:#ffcf3f;color:#5b3a00;font-weight:900;font-size:12px;padding:5px 12px;border-radius:999px;box-shadow:0 3px 8px rgba(180,140,0,.3);z-index:3;}
-  .decor{position:absolute;inset:0;pointer-events:none;}
+  .scenebg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
+  .scene.illust .sun,.scene.illust .cloud{display:none;}
+  /* 多寵物在場景裡走動 */
+  .pets{position:absolute;inset:0;z-index:2;}
+  .petsprite{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;transition:filter .2s;}
+  .petsprite .pi{line-height:1;filter:drop-shadow(0 8px 7px rgba(60,90,120,.22));}
+  .petsprite .pi img{object-fit:contain;filter:drop-shadow(0 8px 7px rgba(60,90,120,.22));}
+  .petsprite .psh{width:60%;height:12px;margin:2px auto 0;background:rgba(60,110,60,.2);border-radius:50%;filter:blur(3px);}
+  .petsprite .out{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:16px;background:rgba(255,255,255,.85);border-radius:999px;padding:1px 6px;font-weight:900;color:#3a5a7a;white-space:nowrap;}
+  .petsprite.away{opacity:.45;}
+  .petsprite.active .pi{filter:drop-shadow(0 10px 9px rgba(60,90,120,.3));}
+  .petsprite.active::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);width:14px;height:14px;background:#ffcf3f;border-radius:50%;box-shadow:0 0 0 3px rgba(255,207,63,.4);}
+  .decor{position:absolute;inset:0;pointer-events:none;z-index:1;}
   .decor span{position:absolute;font-size:54px;line-height:1;filter:drop-shadow(0 4px 4px rgba(60,90,60,.25));user-select:none;}
   .decor span.editing{cursor:grab;animation:wiggle .4s ease-in-out infinite;}
   .decor span.editing:active{cursor:grabbing;}
@@ -178,6 +190,7 @@
       <div class="coin">🍎 <span id="food">0</span></div>
       <div class="coin">🪙 <span id="coins">0</span></div>
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
+      <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
 
@@ -190,14 +203,12 @@
     <div class="petbar" id="petbar"></div>
 
     <div class="scene" id="scene">
+      <img class="scenebg" id="sceneBg" alt="" onerror="this.dataset.failed=this.getAttribute('src'); this.style.display='none'">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <div class="decor" id="decor"></div>
-      <div class="hero" id="hero">
-        <div class="avatar" id="avatar">🥚</div>
-        <div class="shadow"></div>
-      </div>
+      <div class="pets" id="pets"></div>
       <div class="petname" id="petName">小龍</div>
       <div class="xpwrap">
         <div class="lvtag">經驗 · Lv.<span id="lv2">1</span></div>
@@ -290,7 +301,9 @@ const THEMES = [
   {id:"sakura", name:"櫻花",  cost:50, bg:"linear-gradient(180deg,#ffd9ec 0%,#ffe9f4 48%,#d8f0c0 66%,#bfe6a0 100%)"},
   {id:"night",  name:"星空",  cost:60, bg:"linear-gradient(180deg,#2b3a6b 0%,#3f4f8c 45%,#5a6b9c 62%,#4a6b52 100%)"},
   {id:"sunset", name:"黃昏",  cost:60, bg:"linear-gradient(180deg,#ffb37a 0%,#ffd9a0 46%,#c9d98a 64%,#9ec87a 100%)"},
-  {id:"snow",   name:"雪地",  cost:70, bg:"linear-gradient(180deg,#cfe6ff 0%,#eaf6ff 50%,#f2f8ff 64%,#dfeaf2 100%)"}
+  {id:"snow",   name:"雪地",  cost:70, bg:"linear-gradient(180deg,#cfe6ff 0%,#eaf6ff 50%,#f2f8ff 64%,#dfeaf2 100%)"},
+  // 插畫背景：Kevin 用 Nano Banana 生「溫暖手繪小屋+庭院」放 assets/scenes/home.png，選這個就自動鋪上（沒圖則暖色底）
+  {id:"home", name:"🏡插畫小屋", cost:0, bg:"linear-gradient(180deg,#e9ddc4 0%,#e7e2cf 46%,#d9e6be 64%,#cfe0ad 100%)", img:"assets/scenes/home.png"}
 ];
 // 打工/探險（單位：分鐘）——旅行青蛙式，離線也在跑
 const JOBS = [
@@ -342,6 +355,7 @@ function migrate(s){
     return null;
   }).filter(Boolean);
   if(!Array.isArray(s.cards)) s.cards = [];
+  if(typeof s.bgm!=="boolean") s.bgm = true;
   if(typeof s.theme!=="string") s.theme = "meadow";
   if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
   if(!s.themes.includes(s.theme)) s.theme = "meadow";
@@ -377,8 +391,10 @@ function enterGame(){
   words = getWords(S.grades);
   document.getElementById("login").classList.add("hidden");
   document.getElementById("home").classList.remove("hidden");
+  document.getElementById("petbar").style.display = "none";   // 改用「寵物在場景裡」，不用切換頁籤
   decayCare(); render();
   if(tick) clearInterval(tick); tick = setInterval(onTick, 1000);
+  if(S.bgm !== false) startBGM();
 }
 
 function stageFor(lv){ let s=STAGES[0]; for(const st of STAGES){ if(lv>=st.min) s=st; } return s; }
@@ -412,12 +428,15 @@ function render(){
   document.getElementById("stageName").textContent = st.name;
   document.getElementById("petOwner").textContent = S.name + " 的寵物";
   document.getElementById("petName").textContent = st.name;
-  const av = document.getElementById("avatar");
-  av.innerHTML = `<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`;
   document.getElementById("xpbar").style.width = ((p.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
   document.getElementById("feedBtn").disabled = S.food < 1 || !!p.away;
+  // 場景主題（含插畫背景圖，圖載入失敗自動退回漸層）
   const th = THEMES.find(t=>t.id===S.theme) || THEMES[0];
-  document.getElementById("scene").style.background = th.bg;
+  const sc=document.getElementById("scene"), sb=document.getElementById("sceneBg");
+  sc.style.background = th.bg;
+  if(th.img && sb.dataset.failed!==th.img){ if(sb.getAttribute("src")!==th.img) sb.src=th.img; sb.style.display=""; sc.classList.add("illust"); }
+  else { sb.style.display="none"; sc.classList.remove("illust"); }
+  document.getElementById("bgmBtn").textContent = (S.bgm===false)?"🔇":"🔊";
   ["hunger","mood","clean"].forEach(k=>{
     document.getElementById(k+"Bar").style.width = p.care[k]+"%";
     document.getElementById(k+"V").textContent = p.care[k];
@@ -426,18 +445,21 @@ function render(){
   const dn = Math.min(S.daily.n, DAILY_GOAL);
   document.getElementById("dailyBar").style.width = (dn/DAILY_GOAL*100)+"%";
   document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
-  renderPetbar(); renderDecor(); renderAway();
+  renderPets(); renderDecor(); renderAway();
 }
-function renderPetbar(){
-  const bar = document.getElementById("petbar"); bar.innerHTML="";
+const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:44},{x:63,y:46},{x:20,y:46},{x:80,y:46},{x:50,y:72}];
+function renderPets(){
+  const box = document.getElementById("pets"); box.innerHTML="";
   S.pets.forEach((p,i)=>{
-    const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv);
-    const c=document.createElement("div"); c.className="pchip"+(i===S.active?" on":"");
-    c.innerHTML=`<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`+(p.away?'<span class="dot">🕐</span>':'');
-    c.onclick=()=>setActive(i); bar.appendChild(c);
+    const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv), active=i===S.active;
+    const x = active?50:PET_SLOTS[i%PET_SLOTS.length].x, y = active?60:PET_SLOTS[i%PET_SLOTS.length].y;
+    const px = active?150:92, dur = (2.4+(i%5)*0.4).toFixed(1);
+    const el=document.createElement("div"); el.className="petsprite"+(active?" active":"")+(p.away?" away":"");
+    el.style.left=x+"%"; el.style.top=y+"%";
+    el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?96:56}px;"><img src="${st.img}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.emoji}'"></div><div class="psh" style="width:${active?96:56}px"></div>${p.away?'<span class="out">🕐 出門</span>':''}`;
+    el.onclick=()=>{ if(!active) setActive(i); };
+    box.appendChild(el);
   });
-  const add=document.createElement("div"); add.className="pchip add"; add.textContent="＋"; add.title="買蛋養新的";
-  add.onclick=()=>openShop(); bar.appendChild(add);
 }
 
 let editMode=false;
@@ -474,8 +496,8 @@ function startDrag(e,i,el){
 /* 外出（打工/探險）狀態 */
 function renderAway(){
   const p = P(), away = document.getElementById("away");
-  if(!p.away){ away.classList.add("hidden"); document.getElementById("hero").style.visibility="visible"; return; }
-  away.classList.remove("hidden"); document.getElementById("hero").style.visibility="hidden";
+  if(!p.away){ away.classList.add("hidden"); return; }
+  away.classList.remove("hidden");
   document.getElementById("awayIcon").textContent = p.away.ic;
   document.getElementById("awayTxt").textContent = p.away.name + "…";
   const done = now() >= p.away.until;
@@ -547,7 +569,7 @@ function openShop(){
   // 場景主題
   const tg=document.getElementById("themeGrid"); tg.innerHTML="";
   THEMES.forEach(t=>{
-    const owned = S.themes.includes(t.id), active = S.theme===t.id;
+    const owned = S.themes.includes(t.id) || t.cost===0, active = S.theme===t.id;
     const d=document.createElement("div"); d.className="themecard"+(owned?" owned":"")+(active?" active":"");
     d.innerHTML = `<div class="sw" style="background:${t.bg}"></div><div class="tn">${t.name}</div>`;
     const b=document.createElement("button");
@@ -649,7 +671,8 @@ function matchTap(b,c){ if(b.classList.contains("done")) return;
 
 function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; }
   const p=P(); const before=stageFor(levelOf()).name; S.food-=1; p.xp+=XP_PER_FEED; p.care.hunger=Math.min(100,p.care.hunger+15); save();
-  const after=stageFor(levelOf()).name; const av=document.getElementById("avatar"); av.style.transform="scale(1.18)"; setTimeout(()=>av.style.transform="",300); render();
+  const after=stageFor(levelOf()).name; render();
+  const av=document.getElementById("activeSprite"); if(av){ av.style.transition="transform .15s"; av.style.transform="scale(1.18)"; setTimeout(()=>av.style.transform="",300); }
   if(before!==after) toast("進化！變成「"+after+"」🎉"); else toast("牠吃得好開心 😋"); }
 
 function openSettings(){
@@ -679,6 +702,31 @@ function markRight(en){ document.querySelectorAll(".opt").forEach(o=>{ if(o.text
 function speak(t){ if(!t||!window.speechSynthesis) return; const u=new SpeechSynthesisUtterance(t); u.lang="en-US"; u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1000); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+/* ===== 背景音樂：瀏覽器內建生成的柔和五聲音階（免音檔）。Kevin 可之後給真 BGM 檔替換 ===== */
+let audioCtx=null, bgmTimer=null, bgmOn=false, bgmMaster=null;
+const PENTA=[261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25]; // C D E G A C D E（五聲，永不刺耳）
+function startBGM(){
+  if(bgmOn) return;
+  try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  if(audioCtx.state==="suspended") audioCtx.resume();
+  bgmOn=true; const b=document.getElementById("bgmBtn"); if(b) b.textContent="🔊";
+  bgmMaster = audioCtx.createGain(); bgmMaster.gain.value=0.05; bgmMaster.connect(audioCtx.destination);
+  const playNote=()=>{
+    if(!bgmOn||!audioCtx) return;
+    const n=PENTA[Math.floor(Math.random()*PENTA.length)];
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type="triangle"; o.frequency.value=n;
+    const t=audioCtx.currentTime;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.5,t+0.06); g.gain.exponentialRampToValueAtTime(0.0008,t+1.7);
+    o.connect(g); g.connect(bgmMaster); o.start(t); o.stop(t+1.8);
+  };
+  playNote(); bgmTimer=setInterval(playNote, 950);
+}
+function stopBGM(){ bgmOn=false; if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } const b=document.getElementById("bgmBtn"); if(b) b.textContent="🔇"; }
+function toggleBGM(){ if(bgmOn){ if(S) S.bgm=false; save(); stopBGM(); } else { if(S) S.bgm=true; save(); startBGM(); } }
+// 瀏覽器政策：音訊需使用者互動後才能播；第一次點擊時若設定開著就啟動
+document.addEventListener("pointerdown", ()=>{ if(S && S.bgm!==false && !bgmOn) startBGM(); });
 
 // 已有存檔 → 自動進遊戲，不必每次輸入名字（第一次玩才顯示登入畫面）
 if(S){ enterGame(); }
