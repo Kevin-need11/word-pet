@@ -79,6 +79,14 @@
   .themecard .sw{height:44px;} .themecard .tn{font-size:12px;font-weight:800;padding:4px 2px;text-align:center;color:#3a3a55;}
   .themecard button{width:100%;border:none;padding:6px;font-weight:900;font-size:12px;cursor:pointer;background:#ffcf3f;color:#5b3a00;}
   .themecard.owned button{background:#e7edf6;color:#5a6a8c;} .themecard.active button{background:#39d353;color:#fff;}
+  .dexgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .dexcard{border:2px solid #e6ebf5;border-radius:12px;padding:10px 12px;cursor:pointer;background:#f7f9ff;}
+  .dexcard.lit{background:#eafff1;border-color:#8fe0a8;}
+  .dexcard .de{font-size:18px;font-weight:900;color:#c3c9da;letter-spacing:.5px;}
+  .dexcard.lit .de{color:#268a49;}
+  .dexcard .dz{font-size:13px;color:#8a8aa0;font-weight:700;}
+  .dexcard .dp{font-size:11px;font-weight:800;color:#aab0c4;margin-top:2px;}
+  .dexcard.lit .dp{color:#39b566;}
   .hero{display:flex;flex-direction:column;align-items:center;z-index:2;}
   .hero .avatar{font-size:130px;line-height:1;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
   .hero .avatar img{max-height:200px;max-width:74%;object-fit:contain;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
@@ -190,6 +198,7 @@
       <div class="coin">🍎 <span id="food">0</span></div>
       <div class="coin">🪙 <span id="coins">0</span></div>
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
+      <button class="gear" onclick="openDex()">📖</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -262,6 +271,14 @@
     <div id="tripList"></div>
   </div></div>
 
+  <!-- 單字圖鑑 -->
+  <div class="sheetwrap hidden" id="dexWrap"><div class="sheet2">
+    <div class="grab"></div>
+    <div class="lhead"><div class="ltitle">📖 單字圖鑑（已學會 <span id="dexProg">0/0</span>）</div><button class="close" onclick="closeSheet('dexWrap')">✕</button></div>
+    <p style="font-size:12px;color:#8a8aa0;font-weight:700;margin-bottom:8px;">答對 3 次的字會點亮 ✨＝真的學會。點卡片複習發音 🔊</p>
+    <div class="dexgrid" id="dexGrid"></div>
+  </div></div>
+
   <!-- 商店：買食物 + 家佈置 -->
   <div class="sheetwrap hidden" id="shopWrap"><div class="sheet2">
     <div class="grab"></div>
@@ -289,6 +306,8 @@ const STAGES = [
 ];
 const XP_PER_LV = 50, XP_PER_FEED = 5, DAILY_GOAL = 10;
 const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
+const MASTER_N = 3;                    // 一個字答對幾次算「學會」（圖鑑點亮）
+const SPECIALTY_BONUS = 1.5;           // 做擅長的工作多賺 50%
 const SAVE_VER = 3;                    // 存檔版本（升級用）
 const FOODPACKS = [                    // 用金幣買食物
   {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
@@ -335,7 +354,7 @@ function save(){ localStorage.setItem("petSave", JSON.stringify(S)); }
 function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function now(){ return Date.now(); }
 
-function newPet(species){ return {id:"p"+now()+Math.floor(Math.random()*1000), species:species||"dragon", xp:0, care:{hunger:100,mood:100,clean:100,ts:now()}, away:null}; }
+function newPet(species){ return {id:"p"+now()+Math.floor(Math.random()*1000), species:species||"dragon", xp:0, care:{hunger:100,mood:100,clean:100,ts:now()}, away:null, specialty: JOBS[Math.floor(Math.random()*JOBS.length)].id}; }
 function P(){ return S.pets[S.active]; }
 
 /* 舊存檔自動升級：任何缺的欄位補預設，不刪既有進度。改版不必清資料。 */
@@ -355,6 +374,7 @@ function migrate(s){
     return null;
   }).filter(Boolean);
   if(!Array.isArray(s.cards)) s.cards = [];
+  if(!s.wordStats || typeof s.wordStats!=="object") s.wordStats = {};
   if(typeof s.bgm!=="boolean") s.bgm = true;
   if(typeof s.theme!=="string") s.theme = "meadow";
   if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
@@ -374,6 +394,7 @@ function migrate(s){
     if(typeof p.care.ts!=="number") p.care.ts = now();
     if(p.away!==null && (!p.away || typeof p.away.until!=="number")) p.away = null;
     if(!p.id) p.id = "p"+Math.floor(Math.random()*1e9);
+    if(!p.specialty) p.specialty = JOBS[Math.floor(Math.random()*JOBS.length)].id;
   });
   if(typeof s.active!=="number" || s.active<0 || s.active>=s.pets.length) s.active = 0;
   delete s.xp; delete s.care; delete s.away;   // 移除舊頂層單寵欄位
@@ -427,7 +448,8 @@ function render(){
   document.getElementById("lv2").textContent = lv;
   document.getElementById("stageName").textContent = st.name;
   document.getElementById("petOwner").textContent = S.name + " 的寵物";
-  document.getElementById("petName").textContent = st.name;
+  const spec = JOBS.find(j=>j.id===p.specialty);
+  document.getElementById("petName").textContent = st.name + (spec? "　擅長 "+spec.ic+spec.name : "");
   document.getElementById("xpbar").style.width = ((p.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
   document.getElementById("feedBtn").disabled = S.food < 1 || !!p.away;
   // 場景主題（含插畫背景圖，圖載入失敗自動退回漸層）
@@ -516,7 +538,9 @@ function onTick(){ decayCare(); renderAway();
 function goAway(kind, job){
   const p=P();
   if(p.away){ toast("牠已經出門了"); return; }
-  p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin:job.coin, until: now() + job.min*60000};
+  let coin = job.coin;
+  if(kind==="work" && job.id===p.specialty) coin = Math.round(coin*SPECIALTY_BONUS);   // 擅長的工作多賺
+  p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin, until: now() + job.min*60000};
   save(); closeSheet(kind==="work"?"workWrap":"tripWrap"); render();
   toast(job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
 }
@@ -540,9 +564,28 @@ function guardAway(){ if(P().away){ toast("牠出門了，等牠回來 🕐"); r
 function jobRow(j,kind){
   const div=document.createElement("div"); div.className="jobrow";
   const dur = j.min>=60? (j.min/60)+" 小時" : j.min+" 分鐘";
-  div.innerHTML = `<div class="ji">${j.ic}</div><div class="jinfo"><b>${j.name}</b><div>${dur} · 回來 🪙+${j.coin}${kind==="trip"?" ＋明信片":""}</div></div>`;
+  const spec = (kind==="work" && j.id===P().specialty);
+  const coin = spec? Math.round(j.coin*SPECIALTY_BONUS) : j.coin;
+  div.innerHTML = `<div class="ji">${j.ic}</div><div class="jinfo"><b>${j.name}${spec?' <span style="color:#e08a2f">⭐擅長</span>':''}</b><div>${dur} · 回來 🪙+${coin}${spec?'（+50%）':''}${kind==="trip"?" ＋明信片":""}</div></div>`;
   const b=document.createElement("button"); b.className="jgo"; b.textContent="出發"; b.onclick=()=>goAway(kind,j);
   div.appendChild(b); return div;
+}
+
+/* 單字圖鑑：答對 MASTER_N 次才點亮＝收集門檻就是學會門檻 */
+function openDex(){
+  const seen=new Set(), list=[];
+  getWords(S.grades).forEach(w=>{ if(!seen.has(w.en)){ seen.add(w.en); list.push(w); } });
+  let learned=0;
+  const g=document.getElementById("dexGrid"); g.innerHTML="";
+  list.forEach(w=>{
+    const c=S.wordStats[w.en]||0, lit=c>=MASTER_N; if(lit) learned++;
+    const d=document.createElement("div"); d.className="dexcard"+(lit?" lit":"");
+    const card=S.cards.includes(w.en)?" 📮":"";
+    d.innerHTML=`<div class="de">${w.en}${card}</div><div class="dz">${w.zh}</div><div class="dp">${lit?'✨ 已學會':('熟練 '+c+'/'+MASTER_N)}</div>`;
+    d.onclick=()=>speak(w.en); g.appendChild(d);
+  });
+  document.getElementById("dexProg").textContent = learned+"/"+list.length;
+  openSheet("dexWrap");
 }
 
 /* 商店：買食物 + 家佈置 */
@@ -615,6 +658,7 @@ function openLearn(){ openSheet("learnWrap"); setMode(mode); if(careBonus()) toa
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeSheet(id){ document.getElementById(id).classList.add("hidden"); render(); }
 
+function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1; }
 function gotRight(bonus){
   let n = bonus||1; if(careBonus()) n += 1;           // 照顧得好→多賺（拉不推）
   S.coins += n; S.correct += 1;                        // 答對單字 → 賺錢（不是直接給食物）
@@ -634,7 +678,7 @@ function renderPick(){
     <button class="speak" onclick="speak(cur.en)">🔊 唸唸看</button><div class="opts" id="opts"></div>`;
   const box=document.getElementById("opts");
   opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
-    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("答對了！🪙+1"); setTimeout(renderPick,800);}
+    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); markLearned(cur.en); gotRight(1); speak(cur.en); toast("答對了！🪙+1"); setTimeout(renderPick,800);}
       else{ b.classList.add("wrong"); markRight(cur.en); toast("再試試看 💪"); setTimeout(renderPick,1100);} }; box.appendChild(b); });
   setTimeout(()=>speak(cur.en),250);
 }
@@ -648,13 +692,13 @@ function renderSpell(){ cur=pickWord(); spellPicked=[]; const bank=shuffle(cur.e
 function drawSlots(){ const s=document.getElementById("slots"); s.innerHTML="";
   cur.en.split("").forEach((_,i)=>{ const d=document.createElement("div"); d.className="slot"+(spellPicked[i]?" filled":""); d.textContent=spellPicked[i]||""; s.appendChild(d); }); }
 function spellTap(ch,btn){ if(spellPicked.length>=cur.en.length) return; spellPicked.push(ch); btn.classList.add("used"); drawSlots();
-  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ gotRight(1); speak(cur.en); toast("拼對了！🪙+1"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
+  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ markLearned(cur.en); gotRight(1); speak(cur.en); toast("拼對了！🪙+1"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
 function spellUndo(){ if(!spellPicked.length) return; spellPicked.pop(); const u=document.querySelectorAll("#letters .lt.used"); if(u.length) u[u.length-1].classList.remove("used"); drawSlots(); }
 function renderListen(){ cur=pickWord(); const opts=[cur.en,...distractors(cur.en,3)]; shuffle(opts);
   document.getElementById("quiz").innerHTML=`<div class="ask">聽發音，選出你聽到的英文單字</div><button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button><div class="opts" id="opts"></div>`;
   const box=document.getElementById("opts");
   opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
-    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("聽對了！🪙+1"); setTimeout(renderListen,800);}
+    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); markLearned(cur.en); gotRight(1); speak(cur.en); toast("聽對了！🪙+1"); setTimeout(renderListen,800);}
       else{ b.classList.add("wrong"); markRight(cur.en); toast("再聽聽看 💪"); setTimeout(renderListen,1100);} }; box.appendChild(b); });
   setTimeout(()=>speak(cur.en),300); }
 let mSel=null,mLeft=0;
@@ -665,7 +709,7 @@ function renderMatch(){ const pool=[],seen=new Set(); while(pool.length<4&&seen.
 function matchTap(b,c){ if(b.classList.contains("done")) return;
   if(!mSel){ mSel={b,c}; b.classList.add("sel"); if(c.t===c.en) speak(c.en); return; }
   if(mSel.b===b){ b.classList.remove("sel"); mSel=null; return; }
-  if(mSel.c.k===c.k){ b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done"); mSel=null; mLeft--; gotRight(1); speak(c.en);
+  if(mSel.c.k===c.k){ b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done"); mSel=null; mLeft--; markLearned(c.en); gotRight(1); speak(c.en);
     if(mLeft<=0){ toast("全部配對完成！🎉"); save(); render(); setTimeout(renderMatch,900);} }
   else{ b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b; setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null; } }
 
