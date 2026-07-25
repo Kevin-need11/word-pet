@@ -6,46 +6,86 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="單字寵物">
+<meta name="theme-color" content="#5b8def">
 <title>單字寵物 · 學英文養小龍</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;}
   html,body{height:100%;}
-  body{background:linear-gradient(160deg,#5b8def,#7b6cf6 55%,#9b6cf6);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-  .app{width:100%;max-width:520px;height:100%;max-height:900px;display:flex;flex-direction:column;padding:18px;}
+  body{background:linear-gradient(165deg,#d3ecff 0%,#e8f6ff 45%,#e4f6cf 100%);color:#2b3145;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .app{width:100%;max-width:520px;height:100%;max-height:940px;display:flex;flex-direction:column;padding:14px;}
   .hidden{display:none!important;}
   /* login */
-  #login{margin:auto;text-align:center;padding:30px;}
-  #login .logo{font-size:96px;margin-bottom:6px;}
+  #login{margin:auto;text-align:center;padding:26px;}
+  #login .logo{font-size:88px;margin-bottom:6px;}
   #login h1{font-size:32px;font-weight:900;margin-bottom:8px;}
-  #login p{font-size:17px;opacity:.9;margin-bottom:28px;}
-  #login input{width:100%;font-size:24px;padding:16px 18px;border:none;border-radius:16px;text-align:center;color:#333;font-weight:700;margin-bottom:16px;}
-  .btn{background:#ffcf3f;color:#5b3a00;font-weight:900;border:none;border-radius:16px;padding:16px;font-size:22px;cursor:pointer;box-shadow:0 6px 0 #d9a900;transition:.05s;width:100%;}
+  #login p{font-size:16px;opacity:.9;margin-bottom:26px;}
+  #login input{width:100%;font-size:23px;padding:15px 18px;border:none;border-radius:16px;text-align:center;color:#333;font-weight:700;margin-bottom:14px;}
+  .btn{background:#ffcf3f;color:#5b3a00;font-weight:900;border:none;border-radius:16px;padding:15px;font-size:21px;cursor:pointer;box-shadow:0 6px 0 #d9a900;transition:.05s;width:100%;}
   .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #d9a900;}
   /* pet header */
-  .pet{background:rgba(255,255,255,.14);border-radius:22px;padding:16px;text-align:center;position:relative;}
-  .pet .stage{position:absolute;top:12px;right:16px;background:#ffcf3f;color:#5b3a00;font-weight:900;font-size:13px;padding:4px 12px;border-radius:999px;}
-  .pet .food{position:absolute;top:12px;left:16px;font-weight:900;font-size:17px;}
-  .pet .avatar{font-size:96px;line-height:1.1;margin:6px 0 2px;transition:transform .3s;}
-  .pet .pname{font-size:19px;font-weight:900;}
-  .pet .lv{font-size:14px;opacity:.9;margin-top:2px;}
-  .bar{height:14px;background:rgba(0,0,0,.22);border-radius:999px;margin:10px 24px 4px;overflow:hidden;}
+  .pet{background:linear-gradient(180deg,#bfe3ff 0%,#e2f2ff 55%,#cdeeab 100%);border-radius:20px;padding:12px;text-align:center;position:relative;flex-shrink:0;box-shadow:0 4px 14px rgba(90,130,180,.18),inset 0 1px 0 #fff;}
+  .pet .stage{position:absolute;top:10px;right:14px;background:#ffcf3f;color:#5b3a00;font-weight:900;font-size:12px;padding:3px 11px;border-radius:999px;}
+  .pet .food{position:absolute;top:10px;left:14px;font-weight:900;font-size:16px;}
+  .pet .avatar{font-size:78px;line-height:1;margin:4px 0 2px;transition:transform .3s;display:flex;align-items:center;justify-content:center;height:88px;}
+  .pet .avatar img{max-height:88px;max-width:120px;object-fit:contain;}
+  .pet .pname{font-size:17px;font-weight:900;}
+  .pet .lv{font-size:13px;opacity:.9;margin-top:1px;}
+  .bar{height:12px;background:rgba(0,0,0,.22);border-radius:999px;margin:8px 22px 3px;overflow:hidden;}
   .bar>i{display:block;height:100%;background:linear-gradient(90deg,#7bff9b,#39d353);width:0;transition:width .4s;}
-  .feedbtn{margin:12px auto 0;display:block;width:auto;padding:12px 26px;font-size:18px;background:#ff8a5b;color:#fff;box-shadow:0 6px 0 #d95f2f;}
-  .feedbtn:active{box-shadow:0 2px 0 #d95f2f;}
-  .feedbtn:disabled{opacity:.45;box-shadow:0 6px 0 #d95f2f;}
-  /* quiz */
-  .quiz{background:#fff;color:#2b2b3a;border-radius:22px;padding:22px 18px;margin-top:16px;flex:1;display:flex;flex-direction:column;}
-  .quiz .ask{font-size:15px;color:#8a8aa0;text-align:center;font-weight:700;}
-  .quiz .zh{font-size:46px;font-weight:900;text-align:center;margin:8px 0 4px;color:#3a3a55;}
-  .speak{display:block;margin:2px auto 14px;background:#eef1ff;color:#4a63d6;border:none;border-radius:999px;padding:9px 20px;font-size:16px;font-weight:800;cursor:pointer;}
-  .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:auto;}
-  .opt{background:#f2f4fb;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:16px;padding:20px 8px;font-size:26px;font-weight:900;cursor:pointer;transition:.1s;}
+  .feedbtn{margin:9px auto 0;display:block;width:auto;padding:9px 24px;font-size:16px;background:#ff8a5b;color:#fff;box-shadow:0 5px 0 #d95f2f;}
+  .feedbtn:active{box-shadow:0 2px 0 #d95f2f;transform:translateY(3px);}
+  .feedbtn:disabled{opacity:.45;}
+  .gear{position:absolute;bottom:8px;right:12px;background:none;border:none;color:#fff;font-size:19px;opacity:.7;cursor:pointer;}
+  /* daily */
+  .daily{background:rgba(255,255,255,.72);border-radius:14px;padding:8px 12px;margin-top:8px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;flex-shrink:0;box-shadow:0 2px 8px rgba(90,130,180,.12);}
+  .daily .dbar{flex:1;height:9px;background:rgba(0,0,0,.22);border-radius:999px;overflow:hidden;}
+  .daily .dbar>i{display:block;height:100%;background:#ffcf3f;width:0;transition:width .4s;}
+  /* mode tabs */
+  .tabs{display:flex;gap:6px;margin-top:10px;flex-shrink:0;}
+  .tab{flex:1;background:rgba(255,255,255,.5);color:#5a6a8c;border:none;border-radius:12px 12px 0 0;padding:9px 2px;font-size:13px;font-weight:800;cursor:pointer;opacity:.85;}
+  .tab.on{background:#fff;color:#5b3a8f;opacity:1;}
+  /* quiz card */
+  .quiz{background:#fff;color:#2b2b3a;border-radius:0 0 20px 20px;padding:18px 16px;flex:1;display:flex;flex-direction:column;min-height:0;}
+  .quiz .ask{font-size:14px;color:#8a8aa0;text-align:center;font-weight:700;}
+  .quiz .zh{font-size:42px;font-weight:900;text-align:center;margin:6px 0 2px;color:#3a3a55;}
+  .quiz .enbig{font-size:40px;font-weight:900;text-align:center;margin:6px 0;color:#3a3a55;letter-spacing:1px;}
+  .speak{display:block;margin:2px auto 12px;background:#eef1ff;color:#4a63d6;border:none;border-radius:999px;padding:8px 18px;font-size:15px;font-weight:800;cursor:pointer;}
+  .speak.big{font-size:22px;padding:16px 30px;margin:16px auto;}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto;}
+  .opt{background:#f2f4fb;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:14px;padding:18px 6px;font-size:23px;font-weight:900;cursor:pointer;transition:.1s;}
   .opt:active{transform:scale(.97);}
   .opt.right{background:#39d353;border-color:#2bb344;color:#fff;}
   .opt.wrong{background:#ff5b6e;border-color:#e03b50;color:#fff;}
-  .toast{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(0,0,0,.82);padding:22px 34px;border-radius:20px;font-size:30px;font-weight:900;transition:transform .18s;z-index:9;text-align:center;}
+  /* spelling */
+  .spellSlots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:14px 0;min-height:48px;}
+  .slot{width:38px;height:46px;border-bottom:4px solid #b9c0dd;font-size:28px;font-weight:900;display:flex;align-items:center;justify-content:center;color:#3a3a55;}
+  .slot.filled{border-bottom-color:#4a63d6;}
+  .letters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:auto;}
+  .lt{width:46px;height:52px;background:#f2f4fb;border:2px solid #e3e7f5;border-radius:12px;font-size:24px;font-weight:900;color:#2b2b3a;cursor:pointer;}
+  .lt:active{transform:scale(.94);}
+  .lt.used{opacity:.28;pointer-events:none;}
+  .undo{display:block;margin:10px auto 0;background:#eef1ff;color:#4a63d6;border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:800;cursor:pointer;}
+  /* match */
+  .matchGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:auto 0;}
+  .mcard{background:#f2f4fb;border:2px solid #e3e7f5;border-radius:12px;padding:16px 4px;font-size:19px;font-weight:900;color:#2b2b3a;cursor:pointer;text-align:center;min-height:56px;display:flex;align-items:center;justify-content:center;transition:.1s;}
+  .mcard.sel{background:#ffe8a3;border-color:#ffcf3f;}
+  .mcard.done{background:#39d353;border-color:#2bb344;color:#fff;opacity:.5;pointer-events:none;}
+  .mcard.bad{background:#ff5b6e;border-color:#e03b50;color:#fff;}
+  /* toast */
+  .toast{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(0,0,0,.82);padding:20px 32px;border-radius:18px;font-size:27px;font-weight:900;transition:transform .18s;z-index:9;text-align:center;}
   .toast.show{transform:translate(-50%,-50%) scale(1);}
-  .foot{text-align:center;font-size:12px;opacity:.75;margin-top:10px;}
+  /* settings modal */
+  .modal{position:fixed;inset:0;background:rgba(20,20,40,.6);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px;}
+  .sheet{background:#fff;color:#2b2b3a;border-radius:20px;padding:22px;width:100%;max-width:420px;max-height:88%;overflow:auto;}
+  .sheet h2{font-size:20px;font-weight:900;margin-bottom:4px;}
+  .sheet .hint{font-size:13px;color:#8a8aa0;margin-bottom:14px;}
+  .grades{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;}
+  .gchk{border:2px solid #e3e7f5;border-radius:12px;padding:12px 4px;text-align:center;font-weight:800;font-size:15px;cursor:pointer;color:#5b5b7a;}
+  .gchk.on{background:#5b8def;border-color:#4a63d6;color:#fff;}
+  .stat{font-size:14px;color:#5b5b7a;line-height:1.9;background:#f5f6fb;border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+  .stat b{color:#2b2b3a;}
+  .sheet .btn{font-size:18px;padding:13px;}
+  .linkbtn{display:block;text-align:center;margin-top:10px;color:#e03b50;font-size:14px;font-weight:700;background:none;border:none;width:100%;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -69,56 +109,63 @@
       <div class="pname" id="petOwner">小龍</div>
       <div class="lv">Lv.<span id="lv">1</span></div>
       <div class="bar"><i id="xpbar"></i></div>
-      <button class="btn feedbtn" id="feedBtn" onclick="feed()">🍖 餵牠吃（用 1 🍎）</button>
+      <button class="btn feedbtn" id="feedBtn" onclick="feed()">🍖 餵牠吃（1 🍎）</button>
+      <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
 
-    <div class="quiz">
-      <div class="ask">這個中文，英文是哪一個？</div>
-      <div class="zh" id="zh">蘋果</div>
-      <button class="speak" onclick="speakCurrent()">🔊 唸唸看</button>
-      <div class="opts" id="opts"></div>
+    <div class="daily">
+      <span>📅 今日任務</span>
+      <div class="dbar"><i id="dailyBar"></i></div>
+      <span id="dailyTxt">0/10</span>
     </div>
 
-    <div class="foot">答對得 🍎 · 餵牠長大會進化 🥚→🦎→🐲→✨</div>
+    <div class="tabs">
+      <button class="tab on" data-mode="pick" onclick="setMode('pick')">認字</button>
+      <button class="tab" data-mode="spell" onclick="setMode('spell')">拼字</button>
+      <button class="tab" data-mode="listen" onclick="setMode('listen')">聽音</button>
+      <button class="tab" data-mode="match" onclick="setMode('match')">配對</button>
+    </div>
+
+    <div class="quiz" id="quiz"></div>
+    <div class="toast" id="toast"></div>
   </div>
 
-  <div class="toast" id="toast"></div>
 </div>
 
+<script src="data/vocab.js"></script>
 <script>
-// ---- 單字題庫（範例：國小低年級。之後後台可換年級/擴到7000） ----
-const WORDS = [
-  {en:"apple",zh:"蘋果"},{en:"cat",zh:"貓"},{en:"dog",zh:"狗"},{en:"book",zh:"書"},
-  {en:"red",zh:"紅色"},{en:"blue",zh:"藍色"},{en:"sun",zh:"太陽"},{en:"moon",zh:"月亮"},
-  {en:"water",zh:"水"},{en:"milk",zh:"牛奶"},{en:"hand",zh:"手"},{en:"fish",zh:"魚"},
-  {en:"bird",zh:"鳥"},{en:"egg",zh:"蛋"},{en:"tree",zh:"樹"},{en:"star",zh:"星星"},
-  {en:"ball",zh:"球"},{en:"cake",zh:"蛋糕"},{en:"rain",zh:"雨"},{en:"eye",zh:"眼睛"}
-];
-// ---- 進化階段 ----
+/* ====== 寵物進化階段（img 若存在就用圖檔，否則 fallback emoji） ======
+   Kevin 用 Nano Banana 生好圖後，命名放進 assets/pets/：
+   egg.png / baby.png / teen.png / final.png（透明背景 PNG 最佳）
+   放進去就自動顯示，不用改 code。命名規則見 assets/pets/README.md */
 const STAGES = [
-  {min:1, emoji:"🥚", name:"蛋"},
-  {min:3, emoji:"🦎", name:"小龍寶寶"},
-  {min:6, emoji:"🐲", name:"小龍"},
-  {min:10,emoji:"✨🐉", name:"進化龍"}
+  {min:1,  emoji:"🥚",   name:"蛋",     img:"assets/pets/egg.png"},
+  {min:3,  emoji:"🦎",   name:"小龍寶寶", img:"assets/pets/baby.png"},
+  {min:6,  emoji:"🐲",   name:"小龍",    img:"assets/pets/teen.png"},
+  {min:10, emoji:"✨🐉", name:"進化龍",  img:"assets/pets/final.png"}
 ];
-const XP_PER_LV = 20, XP_PER_FEED = 8;
+const XP_PER_LV = 20, XP_PER_FEED = 8, DAILY_GOAL = 10;
 
 let S = load();
-let cur = null;
+let words = [];      // 依後台年級範圍展開的題庫
+let cur = null;      // 當前題目
+let mode = "pick";
 
-function load(){
-  try{ return JSON.parse(localStorage.getItem("petSave")) || null; }catch(e){ return null; }
-}
+function load(){ try{ return JSON.parse(localStorage.getItem("petSave")) || null; }catch(e){ return null; } }
 function save(){ localStorage.setItem("petSave", JSON.stringify(S)); }
+function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 
 function start(){
   const n = document.getElementById("nameInput").value.trim() || "小勇者";
-  if(!S) S = {name:n, xp:0, food:0, correct:0};
+  if(!S) S = {name:n, xp:0, food:0, correct:0, grades:[1,2], daily:{date:today(),n:0}};
   else S.name = n;
+  if(!S.grades) S.grades = [1,2];
+  if(!S.daily || S.daily.date !== today()) S.daily = {date:today(), n:0};
   save();
+  words = getWords(S.grades);
   document.getElementById("login").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
-  render(); nextQ();
+  render(); setMode("pick");
 }
 
 function stageFor(lv){ let s=STAGES[0]; for(const st of STAGES){ if(lv>=st.min) s=st; } return s; }
@@ -128,79 +175,207 @@ function render(){
   const lv = levelOf(), st = stageFor(lv);
   document.getElementById("food").textContent = S.food;
   document.getElementById("lv").textContent = lv;
-  document.getElementById("avatar").textContent = st.emoji;
   document.getElementById("stageName").textContent = st.name;
   document.getElementById("petOwner").textContent = S.name + " 的小龍";
+  // 寵物圖：先試圖檔、失敗 fallback emoji
+  const av = document.getElementById("avatar");
+  av.innerHTML = `<img src="${st.img}" alt="" onerror="this.parentNode.textContent='${st.emoji}'">`;
   const into = S.xp % XP_PER_LV;
   document.getElementById("xpbar").style.width = (into/XP_PER_LV*100)+"%";
   document.getElementById("feedBtn").disabled = S.food < 1;
+  // 每日任務
+  if(S.daily.date !== today()) S.daily = {date:today(), n:0};
+  const dn = Math.min(S.daily.n, DAILY_GOAL);
+  document.getElementById("dailyBar").style.width = (dn/DAILY_GOAL*100)+"%";
+  document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
 }
 
-function nextQ(){
-  cur = WORDS[Math.floor(Math.random()*WORDS.length)];
-  document.getElementById("zh").textContent = cur.zh;
-  // 3 個干擾選項
-  const opts = [cur.en];
-  while(opts.length < 4){
-    const w = WORDS[Math.floor(Math.random()*WORDS.length)].en;
-    if(!opts.includes(w)) opts.push(w);
+/* ====== 答對／答錯共用結算 ====== */
+function gotRight(bonus){
+  const n = bonus||1;
+  S.food += n; S.correct += n;
+  S.daily.n = (S.daily.n||0) + 1;
+  if(S.daily.n === DAILY_GOAL){ S.food += 5; toast("每日任務完成！🎁 +5🍎"); }
+  save(); render();
+}
+
+/* ====== 模式切換 ====== */
+function setMode(m){
+  mode = m;
+  document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
+  if(m==="pick") renderPick();
+  else if(m==="spell") renderSpell();
+  else if(m==="listen") renderListen();
+  else if(m==="match") renderMatch();
+}
+function pickWord(){ return words[Math.floor(Math.random()*words.length)]; }
+function distractors(correctEn, n){
+  const out=[]; let guard=0;
+  while(out.length<n && guard++<200){ const w=pickWord().en; if(w!==correctEn && !out.includes(w)) out.push(w); }
+  return out;
+}
+
+/* ---- 模式1：認字（看中文選英文） ---- */
+function renderPick(){
+  cur = pickWord();
+  const opts = [cur.en, ...distractors(cur.en,3)]; shuffle(opts);
+  document.getElementById("quiz").innerHTML = `
+    <div class="ask">這個中文，英文是哪一個？</div>
+    <div class="zh">${cur.zh}</div>
+    <button class="speak" onclick="speak(cur.en)">🔊 唸唸看</button>
+    <div class="opts" id="opts"></div>`;
+  const box=document.getElementById("opts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
+    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("答對了！🍎+1"); setTimeout(renderPick,800);}
+      else{ b.classList.add("wrong"); markRight(cur.en); toast("再試試看 💪"); setTimeout(renderPick,1100);} };
+    box.appendChild(b); });
+  setTimeout(()=>speak(cur.en),250);
+}
+
+/* ---- 模式2：拼字（點字母拼出來） ---- */
+let spellPicked=[];
+function renderSpell(){
+  cur = pickWord(); spellPicked=[];
+  const letters = cur.en.split("");
+  const bank = shuffle(letters.slice());
+  document.getElementById("quiz").innerHTML = `
+    <div class="ask">看中文，把字母排成英文</div>
+    <div class="zh">${cur.zh}</div>
+    <button class="speak" onclick="speak(cur.en)">🔊 提示發音</button>
+    <div class="spellSlots" id="slots"></div>
+    <div class="letters" id="letters"></div>
+    <button class="undo" onclick="spellUndo()">⌫ 退一格</button>`;
+  drawSlots();
+  const lb=document.getElementById("letters");
+  bank.forEach((ch,i)=>{ const b=document.createElement("button"); b.className="lt"; b.textContent=ch; b.dataset.i=i;
+    b.onclick=()=>spellTap(ch,b); lb.appendChild(b); });
+}
+function drawSlots(){
+  const s=document.getElementById("slots"); s.innerHTML="";
+  cur.en.split("").forEach((_,i)=>{ const d=document.createElement("div");
+    d.className="slot"+(spellPicked[i]?" filled":""); d.textContent=spellPicked[i]||""; s.appendChild(d); });
+}
+function spellTap(ch,btn){
+  if(spellPicked.length>=cur.en.length) return;
+  spellPicked.push(ch); btn.classList.add("used"); drawSlots();
+  if(spellPicked.length===cur.en.length){
+    const guess=spellPicked.join("");
+    if(guess===cur.en){ gotRight(2); speak(cur.en); toast("拼對了！🍎+2"); setTimeout(renderSpell,900); }
+    else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100); }
   }
-  shuffle(opts);
-  const box = document.getElementById("opts");
-  box.innerHTML = "";
-  opts.forEach(w=>{
-    const b = document.createElement("button");
-    b.className = "opt"; b.textContent = w;
-    b.onclick = ()=>answer(b, w);
-    box.appendChild(b);
-  });
-  setTimeout(speakCurrent, 250);
+}
+function spellUndo(){
+  if(!spellPicked.length) return;
+  spellPicked.pop();
+  document.querySelectorAll("#letters .lt.used").forEach((b,idx,arr)=>{ if(idx===arr.length-1) b.classList.remove("used"); });
+  drawSlots();
 }
 
-function answer(btn, w){
-  document.querySelectorAll(".opt").forEach(o=>o.onclick=null);
-  if(w === cur.en){
-    btn.classList.add("right");
-    S.food += 1; S.correct += 1; save(); render();
-    toast("答對了！🍎+1");
-    setTimeout(nextQ, 850);
-  }else{
-    btn.classList.add("wrong");
-    document.querySelectorAll(".opt").forEach(o=>{ if(o.textContent===cur.en) o.classList.add("right"); });
-    toast("再試試看 💪");
-    setTimeout(nextQ, 1200);
+/* ---- 模式3：聽音辨字（聽發音選中文） ---- */
+function renderListen(){
+  cur = pickWord();
+  const opts=[cur, ...distractors(cur.en,3).map(en=>words.find(w=>w.en===en))]; shuffle(opts);
+  document.getElementById("quiz").innerHTML = `
+    <div class="ask">聽發音，選出正確的中文意思</div>
+    <button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button>
+    <div class="opts" id="opts"></div>`;
+  const box=document.getElementById("opts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.style.fontSize="20px"; b.textContent=w.zh;
+    b.onclick=()=>{ lock(); if(w.en===cur.en){ b.classList.add("right"); gotRight(2); toast("聽對了！🍎+2"); setTimeout(renderListen,800);}
+      else{ b.classList.add("wrong"); document.querySelectorAll(".opt").forEach(o=>{if(o.textContent===cur.zh)o.classList.add("right");}); toast("再聽聽看 💪"); setTimeout(renderListen,1100);} };
+    box.appendChild(b); });
+  setTimeout(()=>speak(cur.en),300);
+}
+
+/* ---- 模式4：中英配對消消樂 ---- */
+let mSel=null, mLeft=0;
+function renderMatch(){
+  const pool=[]; const seen=new Set();
+  while(pool.length<4 && seen.size<words.length){ const w=pickWord(); if(!seen.has(w.en)){ seen.add(w.en); pool.push(w);} }
+  mLeft=pool.length; mSel=null;
+  const cards=[];
+  pool.forEach(w=>{ cards.push({k:w.en, t:w.en, en:w.en}); cards.push({k:w.en, t:w.zh, en:w.en}); });
+  shuffle(cards);
+  document.getElementById("quiz").innerHTML = `
+    <div class="ask">把英文和中文兩兩配對消除</div>
+    <div class="matchGrid" id="mgrid"></div>`;
+  const g=document.getElementById("mgrid");
+  cards.forEach(c=>{ const b=document.createElement("div"); b.className="mcard"; b.textContent=c.t; b.dataset.k=c.k;
+    b.onclick=()=>matchTap(b,c); g.appendChild(b); });
+}
+function matchTap(b,c){
+  if(b.classList.contains("done")) return;
+  if(!mSel){ mSel={b,c}; b.classList.add("sel"); if(c.t===c.en) speak(c.en); return; }
+  if(mSel.b===b){ b.classList.remove("sel"); mSel=null; return; }
+  if(mSel.c.k===c.k){ // 配對成功
+    b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done");
+    mSel=null; mLeft--; gotRight(1); speak(c.en);
+    if(mLeft<=0){ toast("全部配對完成！🍎+"+4); S.food+=1; save(); render(); setTimeout(renderMatch,900); }
+  }else{ // 配對失敗
+    b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b;
+    setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null;
   }
 }
 
+/* ====== 餵食 ====== */
 function feed(){
   if(S.food < 1) return;
   const before = stageFor(levelOf()).name;
   S.food -= 1; S.xp += XP_PER_FEED; save();
   const after = stageFor(levelOf()).name;
   const av = document.getElementById("avatar");
-  av.style.transform = "scale(1.35)";
-  setTimeout(()=>av.style.transform="scale(1)", 300);
+  av.style.transform = "scale(1.35)"; setTimeout(()=>av.style.transform="scale(1)", 300);
   render();
   if(before !== after) toast("進化！變成「"+after+"」🎉");
-  else toast("牠吃得好開心 😋 +經驗");
+  else toast("牠吃得好開心 😋");
 }
 
-function speakCurrent(){
-  if(!cur || !window.speechSynthesis) return;
-  const u = new SpeechSynthesisUtterance(cur.en);
-  u.lang = "en-US"; u.rate = .85;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+/* ====== 設定（家長後台） ====== */
+function openSettings(){
+  const m=document.createElement("div"); m.className="modal"; m.id="settingsModal";
+  m.innerHTML = `<div class="sheet">
+    <h2>⚙️ 家長後台</h2>
+    <div class="hint">勾選目前要出現的單字年級（可複選）</div>
+    <div class="grades" id="gradeChk"></div>
+    <div class="stat">
+      玩家：<b>${S.name}</b><br>
+      累計答對：<b>${S.correct}</b> 題　·　今日：<b>${Math.min(S.daily.n,DAILY_GOAL)}/${DAILY_GOAL}</b><br>
+      寵物等級：<b>Lv.${levelOf()}</b>（${stageFor(levelOf()).name}）<br>
+      目前題庫：<b id="poolCount">-</b> 字
+    </div>
+    <button class="btn" onclick="saveSettings()">儲存並繼續</button>
+    <button class="linkbtn" onclick="resetAll()">重設全部進度</button>
+  </div>`;
+  document.body.appendChild(m);
+  const g=document.getElementById("gradeChk");
+  for(let i=1;i<=6;i++){ const on=S.grades.includes(i);
+    const d=document.createElement("div"); d.className="gchk"+(on?" on":""); d.textContent=i+"年級"; d.dataset.g=i;
+    d.onclick=()=>{ d.classList.toggle("on"); updatePool(); }; g.appendChild(d); }
+  updatePool();
+  m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+function chosenGrades(){ return [...document.querySelectorAll(".gchk.on")].map(d=>+d.dataset.g); }
+function updatePool(){ const gs=chosenGrades(); document.getElementById("poolCount").textContent = getWords(gs.length?gs:[1]).length; }
+function saveSettings(){
+  let gs=chosenGrades(); if(!gs.length) gs=[1];
+  S.grades=gs; save(); words=getWords(gs);
+  document.getElementById("settingsModal").remove();
+  setMode(mode); toast("已更新單字範圍 ✅");
+}
+function resetAll(){
+  if(!confirm("確定要清空這台裝置上的進度嗎？")) return;
+  localStorage.removeItem("petSave"); location.reload();
 }
 
-function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"), 900);
-}
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+/* ====== 工具 ====== */
+function lock(){ document.querySelectorAll(".opt").forEach(o=>o.onclick=null); }
+function markRight(en){ document.querySelectorAll(".opt").forEach(o=>{ if(o.textContent===en) o.classList.add("right"); }); }
+function speak(text){ if(!text||!window.speechSynthesis) return; const u=new SpeechSynthesisUtterance(text); u.lang="en-US"; u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),950); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-// 若已有存檔，直接進遊戲、名字帶入
-if(S){ document.getElementById("nameInput").value = S.name; }
+/* 若已有存檔，名字帶入登入框 */
+if(S){ document.getElementById("nameInput").value = S.name || ""; }
 </script>
 </body>
 </html>
