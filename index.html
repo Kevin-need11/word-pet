@@ -64,7 +64,10 @@
   .petsprite .pi img{object-fit:contain;filter:drop-shadow(0 8px 7px rgba(60,90,120,.22));}
   .petsprite .psh{width:60%;height:12px;margin:2px auto 0;background:rgba(60,110,60,.2);border-radius:50%;filter:blur(3px);}
   .petsprite .out{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:16px;background:rgba(255,255,255,.85);border-radius:999px;padding:1px 6px;font-weight:900;color:#3a5a7a;white-space:nowrap;}
-  .petsprite.away{opacity:.45;}
+  .petsprite.away{opacity:.6;}
+  .awaytag{position:absolute;top:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:5;}
+  .awaytag .atimer{background:rgba(43,107,214,.92);color:#fff;font-size:12px;font-weight:900;padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums;}
+  .awaytag .aclaim{background:#39d353;color:#fff;border:none;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #2bb344;animation:pigbob 1s ease-in-out infinite;}
   .petsprite.active .pi{filter:drop-shadow(0 10px 9px rgba(60,90,120,.3));}
   .petsprite.active::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);width:14px;height:14px;background:#ffcf3f;border-radius:50%;box-shadow:0 0 0 3px rgba(255,207,63,.4);}
   .decor{position:absolute;inset:0;pointer-events:none;z-index:1;}
@@ -488,9 +491,22 @@ function renderPets(){
     const px = active?150:92, dur = (2.4+(i%5)*0.4).toFixed(1);
     const el=document.createElement("div"); el.className="petsprite"+(active?" active":"")+(p.away?" away":"");
     el.style.left=x+"%"; el.style.top=y+"%";
-    el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?96:56}px;"><img src="${st.img}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.emoji}'"></div><div class="psh" style="width:${active?96:56}px"></div>${p.away?'<span class="out">🕐 出門</span>':''}`;
+    let tag = "";
+    if(p.away){ tag = `<div class="awaytag"><span class="atimer" id="atimer-${i}"></span><button class="aclaim hidden" id="aclaim-${i}" onclick="event.stopPropagation();claimAway(${i})">🎁 領取</button></div>`; }
+    el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?96:56}px;"><img src="${st.img}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.emoji}'"></div><div class="psh" style="width:${active?96:56}px"></div>${tag}`;
     el.onclick=()=>{ if(!active) setActive(i); };
     box.appendChild(el);
+  });
+  refreshAway();
+}
+/* 每隻外出寵物在自己頭上顯示倒數/領取，不擋其他寵物 */
+function refreshAway(){
+  S.pets.forEach((p,i)=>{
+    if(!p.away) return;
+    const t=document.getElementById("atimer-"+i), c=document.getElementById("aclaim-"+i);
+    if(!t) return;
+    if(now()>=p.away.until){ t.classList.add("hidden"); if(c) c.classList.remove("hidden"); }
+    else { t.classList.remove("hidden"); t.textContent = p.away.ic+" "+fmt(p.away.until-now()); if(c) c.classList.add("hidden"); }
   });
 }
 
@@ -525,23 +541,13 @@ function startDrag(e,i,el){
   el.onpointerup=(ev)=>{ el.onpointermove=null; el.onpointerup=null; try{ el.releasePointerCapture(ev.pointerId); }catch(_){} save(); };
 }
 
-/* 外出（打工/探險）狀態 */
-function renderAway(){
-  const p = P(), away = document.getElementById("away");
-  if(!p.away){ away.classList.add("hidden"); return; }
-  away.classList.remove("hidden");
-  document.getElementById("awayIcon").textContent = p.away.ic;
-  document.getElementById("awayTxt").textContent = p.away.name + "…";
-  const done = now() >= p.away.until;
-  document.getElementById("awayTimer").classList.toggle("hidden", done);
-  document.getElementById("awayClaim").classList.toggle("hidden", !done);
-  if(!done) document.getElementById("awayTimer").textContent = fmt(p.away.until - now());
-}
+/* 舊的整片外出遮罩已停用，改成每隻寵物頭上顯示（renderPets/refreshAway） */
+function renderAway(){ document.getElementById("away").classList.add("hidden"); }
 function fmt(ms){ const s=Math.max(0,Math.ceil(ms/1000)); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;
   return (h>0?h+":":"")+String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0"); }
 
-function onTick(){ decayCare(); renderAway();
-  // 每分鐘刷新一次 care 顯示
+function onTick(){ decayCare(); refreshAway();
+  // 每分鐘刷新一次整體顯示（care/piggy）
   if(now()%60000 < 1000) render();
 }
 
@@ -554,9 +560,11 @@ function goAway(kind, job){
   save(); closeSheet(kind==="work"?"workWrap":"tripWrap"); render();
   toast(job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
 }
-function claimAway(){
-  const p=P(), a=p.away; if(!a) return;
-  const gain = careBonus()? Math.round(a.coin*1.2) : a.coin;   // 照顧好→打工探險多賺2成
+function claimAway(i){
+  const idx = (typeof i==="number")? i : S.active;
+  const p = S.pets[idx]; if(!p) return; const a = p.away; if(!a) return;
+  const bonus = (p.care.hunger>=60 && p.care.mood>=60);            // 用這隻自己的狀態算加成
+  const gain = bonus? Math.round(a.coin*1.2) : a.coin;
   S.coins += gain;
   let extra = "";
   if(a.kind==="trip" && words.length){ const w = words[Math.floor(Math.random()*words.length)];
