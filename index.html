@@ -141,8 +141,8 @@
   .daily{background:#f5faff;border-radius:12px;padding:7px 12px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;color:#3a3a55;margin-bottom:8px;}
   .daily .dbar{flex:1;height:9px;background:#e3e9f2;border-radius:999px;overflow:hidden;}
   .daily .dbar>i{display:block;height:100%;background:#ffcf3f;width:0;transition:width .4s;}
-  .tabs{display:flex;gap:6px;}
-  .tab{flex:1;background:#eef2fb;color:#5a6a8c;border:none;border-radius:12px 12px 0 0;padding:9px 2px;font-size:14px;font-weight:800;cursor:pointer;}
+  .tabs{display:flex;gap:6px;overflow-x:auto;}
+  .tab{flex:1 0 auto;min-width:52px;white-space:nowrap;background:#eef2fb;color:#5a6a8c;border:none;border-radius:12px 12px 0 0;padding:9px 8px;font-size:14px;font-weight:800;cursor:pointer;}
   .tab.on{background:#5b8def;color:#fff;}
   .quiz{background:#f7f9ff;color:#2b2b3a;border-radius:0 12px 12px 12px;padding:16px;flex:1;display:flex;flex-direction:column;min-height:300px;}
   .quiz .ask{font-size:14px;color:#8a8aa0;text-align:center;font-weight:700;}
@@ -151,6 +151,17 @@
   .speak.big{font-size:22px;padding:16px 30px;margin:16px auto;}
   .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto;}
   .opt{background:#fff;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:14px;padding:18px 6px;font-size:22px;font-weight:900;cursor:pointer;transition:.1s;}
+  /* Phase 1.6 小遊戲：快閃 + 打地鼠 */
+  .flashbar{height:12px;background:#e3e7f5;border-radius:7px;overflow:hidden;margin:10px 0 4px;}
+  .flashbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#5b8def,#7bd389);transition:width 1s linear;}
+  .flashinfo{text-align:center;font-size:13px;color:#8a8aa0;font-weight:800;margin:2px 0 8px;}
+  .flashinfo b{color:#3a3a55;}
+  .flashend{text-align:center;margin:auto 0;}
+  .whackgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+  .hole{background:#d9b38c;border-radius:14px;height:82px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;box-shadow:inset 0 -7px 0 rgba(0,0,0,.13);}
+  .mole{width:90%;margin-bottom:7px;background:#fff;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:12px;padding:14px 4px;font-size:20px;font-weight:900;cursor:pointer;transition:transform .26s cubic-bezier(.34,1.56,.64,1),background .15s;}
+  .mole.bonk{background:#7bd389;color:#fff;}
+  .mole.miss{background:#ff8a8a;color:#fff;}
   .opt:active{transform:scale(.97);}
   .opt.right{background:#39d353;border-color:#2bb344;color:#fff;}
   .opt.wrong{background:#ff5b6e;border-color:#e03b50;color:#fff;}
@@ -268,6 +279,8 @@
       <button class="tab" data-mode="spell" onclick="setMode('spell')">拼字</button>
       <button class="tab" data-mode="listen" onclick="setMode('listen')">聽音</button>
       <button class="tab" data-mode="match" onclick="setMode('match')">配對</button>
+      <button class="tab" data-mode="flash" onclick="setMode('flash')">⚡快閃</button>
+      <button class="tab" data-mode="whack" onclick="setMode('whack')">🔨打地鼠</button>
     </div>
     <div class="quiz" id="quiz"></div>
   </div></div>
@@ -776,7 +789,7 @@ function careBonus(){ const c=P().care; return (c.hunger>=60 && c.mood>=60); }
 /* 學習 */
 function openLearn(){ openSheet("learnWrap"); setMode(mode); if(careBonus()) toast("✨ 照顧得好，學習多賺！"); }
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
-function closeSheet(id){ document.getElementById(id).classList.add("hidden"); render(); }
+function closeSheet(id){ clearMinigame(); document.getElementById(id).classList.add("hidden"); render(); }
 
 function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1; }
 function gotRight(bonus){
@@ -786,9 +799,10 @@ function gotRight(bonus){
   if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
   save(); render();
 }
-function setMode(m){ mode=m;
+function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
-  if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch(); }
+  if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
+  else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack(); }
 function pickWord(){ return words[Math.floor(Math.random()*words.length)]; }
 function distractors(en,n){ const o=[]; let g=0; while(o.length<n&&g++<200){ const w=pickWord().en; if(w!==en&&!o.includes(w)) o.push(w);} return o; }
 
@@ -832,6 +846,90 @@ function matchTap(b,c){ if(b.classList.contains("done")) return;
   if(mSel.c.k===c.k){ b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done"); mSel=null; mLeft--; markLearned(c.en); gotRight(1); speak(c.en);
     if(mLeft<=0){ toast("全部配對完成！🎉"); save(); render(); setTimeout(renderMatch,900);} }
   else{ b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b; setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null; } }
+
+/* ===== Phase 1.6 小遊戲 ===== */
+let mgTimer=null;
+function clearMinigame(){ if(mgTimer){ clearInterval(mgTimer); mgTimer=null; } }
+
+/* ⚡ 單字快閃：60 秒內看中文選英文，答對越多越多🪙，連對 5 次 bonus */
+let flashScore=0, flashStreak=0, flashLeft=0;
+function renderFlash(){
+  flashScore=0; flashStreak=0; flashLeft=60;
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">⚡ 60 秒挑戰！看中文，越快選對越多 🪙</div>
+     <div class="flashbar"><i id="flashFill"></i></div>
+     <div class="flashinfo"><span id="flashTime">60</span> 秒 · 得分 <b id="flashScore">0</b> · 連對 <b id="flashStreak">0</b></div>
+     <div id="flashQ" style="flex:1;display:flex;flex-direction:column;"></div>`;
+  flashNext();
+  mgTimer=setInterval(()=>{
+    flashLeft--;
+    const ft=document.getElementById("flashTime"), ff=document.getElementById("flashFill");
+    if(!ft){ clearMinigame(); return; }
+    ft.textContent=flashLeft; if(ff) ff.style.width=(flashLeft/60*100)+"%";
+    if(flashLeft<=0){ clearMinigame(); flashEnd(); }
+  },1000);
+}
+function flashNext(){
+  if(flashLeft<=0) return;
+  cur=pickWord(); const opts=[cur.en,...distractors(cur.en,3)]; shuffle(opts);
+  const q=document.getElementById("flashQ"); if(!q) return;
+  q.innerHTML=`<div class="zh">${cur.zh}</div><div class="opts" id="fopts"></div>`;
+  const box=document.getElementById("fopts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
+    b.onclick=()=>{
+      if(w===cur.en){ b.classList.add("right"); markLearned(cur.en);
+        flashScore++; flashStreak++;
+        let bonus=1; if(flashStreak%5===0){ bonus=2; toast("🔥 連對 "+flashStreak+"！🪙+2"); }
+        S.coins+=bonus; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        const es=document.getElementById("flashScore"), et=document.getElementById("flashStreak");
+        if(es) es.textContent=flashScore; if(et) et.textContent=flashStreak;
+        flashNext();
+      } else { b.classList.add("wrong"); flashStreak=0;
+        const et=document.getElementById("flashStreak"); if(et) et.textContent=0;
+        setTimeout(flashNext,350); }
+    }; box.appendChild(b); });
+}
+function flashEnd(){
+  save(); render();
+  const q=document.getElementById("quiz"); if(!q) return;
+  q.innerHTML=`<div class="flashend"><div style="font-size:46px">⏱️</div>
+    <div class="ask">時間到！</div><div class="zh">答對 ${flashScore} 題</div>
+    <p style="color:#8a8aa0;font-weight:800;margin:6px 0 16px">🪙 已存進你的錢包</p>
+    <button class="opt" style="width:100%" onclick="renderFlash()">再玩一次 🔁</button></div>`;
+}
+
+/* 🔨 打地鼠：看中文，敲出正確英文的地鼠（答錯不罰，拉不推） */
+let whackScore=0;
+function renderWhack(){
+  whackScore=0;
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">🔨 看中文，敲出正確英文的地鼠！</div>
+     <div class="zh" id="whackZh">…</div>
+     <div class="whackgrid" id="whackGrid"></div>
+     <div class="flashinfo" style="margin-top:10px">敲對 <b id="whackScore">0</b> 隻 🪙</div>`;
+  whackNext();
+}
+function whackNext(){
+  const grid=document.getElementById("whackGrid"); if(!grid) return;
+  cur=pickWord(); const zh=document.getElementById("whackZh");
+  if(zh) zh.textContent=cur.zh; speak(cur.en);
+  const opts=[cur.en,...distractors(cur.en,3)]; shuffle(opts);
+  grid.innerHTML="";
+  opts.forEach((w,idx)=>{
+    const hole=document.createElement("div"); hole.className="hole";
+    const mole=document.createElement("button"); mole.className="mole"; mole.textContent=w;
+    mole.style.transform="translateY(115%)";
+    setTimeout(()=>{ mole.style.transform="translateY(0)"; }, 110*idx+80);
+    mole.onclick=()=>{
+      if(w===cur.en){ mole.classList.add("bonk"); whackScore++;
+        const es=document.getElementById("whackScore"); if(es) es.textContent=whackScore;
+        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        speak(cur.en); toast("敲到了！🪙+1"); setTimeout(whackNext,520);
+      } else { mole.classList.add("miss"); setTimeout(()=>mole.classList.remove("miss"),400); }
+    };
+    hole.appendChild(mole); grid.appendChild(hole);
+  });
+}
 
 function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; }
   const p=P(); const before=stageFor(levelOf()).name; S.food-=1; p.xp+=XP_PER_FEED; p.care.hunger=Math.min(100,p.care.hunger+15); save();
