@@ -110,15 +110,24 @@
   .away .claim{margin-top:12px;background:#39d353;color:#fff;border:none;border-radius:14px;padding:12px 26px;font-size:18px;font-weight:900;box-shadow:0 5px 0 #2bb344;cursor:pointer;}
   .away .claim:active{transform:translateY(3px);box-shadow:0 2px 0 #2bb344;}
 
-  .actions{display:flex;gap:6px;padding:8px 12px 14px;}
-  .act{flex:1;border:none;border-radius:16px;padding:11px 2px 9px;font-weight:900;font-size:13px;cursor:pointer;
+  .actions{display:flex;gap:4px;padding:8px 10px 14px;}
+  .act{flex:1;border:none;border-radius:14px;padding:10px 1px 8px;font-weight:900;font-size:12px;cursor:pointer;
     background:#fff;color:#3a3a55;box-shadow:0 5px 0 #d7deee;transition:.05s;display:flex;flex-direction:column;align-items:center;gap:2px;}
   .act:active{transform:translateY(3px);box-shadow:0 2px 0 #d7deee;}
   .act .ic{font-size:24px;}
   .act.learn{background:#cfe6ff;box-shadow:0 5px 0 #a7cdf3;}
   .act.feed{background:#ffe0b0;box-shadow:0 5px 0 #eebd7d;}
   .act.work{background:#d9f0d0;box-shadow:0 5px 0 #b3d8a4;}
+  .act.quest{background:#ffe0ea;box-shadow:0 5px 0 #f2b6cd;}
+  .act .ic{font-size:22px;}
   .act:disabled{opacity:.45;}
+  /* 闖關 */
+  .lvrow{display:flex;align-items:center;gap:12px;background:#f7f9ff;border-radius:14px;padding:12px 14px;margin-bottom:8px;}
+  .lvrow.cleared{background:#eafff1;} .lvrow.locked{opacity:.5;}
+  .lvrow .li{font-size:30px;} .lvrow .linfo{flex:1;} .lvrow .linfo b{font-size:16px;} .lvrow .linfo div{font-size:12px;color:#8a8aa0;font-weight:700;}
+  .lvrow .lgo{background:#e8468a;color:#fff;border:none;border-radius:12px;padding:9px 15px;font-weight:900;font-size:14px;cursor:pointer;}
+  .lvrow .lgo:disabled{background:#d7deee;color:#9aa3b8;}
+  .chq{background:#f7f9ff;border-radius:14px;padding:16px;min-height:280px;display:flex;flex-direction:column;}
 
   /* bottom sheet 通用 */
   .sheetwrap{position:absolute;inset:0;background:rgba(30,50,70,.35);display:flex;align-items:flex-end;z-index:15;}
@@ -243,7 +252,8 @@
       <button class="act learn" id="btnLearn" onclick="openLearn()"><span class="ic">📚</span>學習</button>
       <button class="act feed" id="feedBtn" onclick="feed()"><span class="ic">🍖</span>餵食</button>
       <button class="act work" id="btnWork" onclick="openWork()"><span class="ic">💼</span>打工</button>
-      <button class="act" id="btnTrip" onclick="openTrip()"><span class="ic">🗺️</span>探險</button>
+      <button class="act" id="btnTrip" onclick="openTrip()"><span class="ic">🧭</span>探險</button>
+      <button class="act quest" onclick="openQuest()"><span class="ic">🏙️</span>闖關</button>
       <button class="act" onclick="openShop()"><span class="ic">🛒</span>商店</button>
     </div>
   </div>
@@ -286,12 +296,30 @@
     <div class="dexgrid" id="dexGrid"></div>
   </div></div>
 
+  <!-- 城市闖關 -->
+  <div class="sheetwrap hidden" id="questWrap"><div class="sheet2">
+    <div class="grab"></div>
+    <div class="lhead"><div class="ltitle">🏙️ 城市闖關</div><button class="close" onclick="closeSheet('questWrap')">✕</button></div>
+    <p style="font-size:12px;color:#8a8aa0;font-weight:700;margin-bottom:8px;">用對的道具＋答對單字才能過關！道具去 🛒商店買。過關拿金幣＋單字卡。</p>
+    <div id="lvList"></div>
+  </div></div>
+
+  <!-- 闖關答題 -->
+  <div class="sheetwrap hidden" id="chWrap"><div class="sheet2">
+    <div class="grab"></div>
+    <div class="lhead"><div class="ltitle" id="chTitle">闖關中</div><button class="close" onclick="closeSheet('chWrap')">✕</button></div>
+    <div class="daily"><span>進度</span><div class="dbar"><i id="chBar"></i></div><span id="chProg">0/3</span></div>
+    <div class="chq" id="chQuiz"></div>
+  </div></div>
+
   <!-- 商店：買食物 + 家佈置 -->
   <div class="sheetwrap hidden" id="shopWrap"><div class="sheet2">
     <div class="grab"></div>
     <div class="lhead"><div class="ltitle">🛒 商店（🪙 <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
     <div style="font-weight:900;font-size:14px;margin:2px 0 8px;">🥚 買蛋（多養一隻）</div>
     <div class="shopgrid"><div class="shopitem"><div class="si">🥚</div><div class="sn">寵物蛋</div><button onclick="buyEgg()">🪙 <span id="eggCost">30</span></button></div></div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🎒 闖關道具（過關要用）</div>
+    <div class="shopgrid" id="gearGrid"></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🍎 買食物（餵寵物用）</div>
     <div class="shopgrid" id="foodGrid"></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置（買了到主畫面按「✋佈置」拖擺放）</div>
@@ -316,6 +344,21 @@ const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
 const MASTER_N = 3;                    // 一個字答對幾次算「學會」（圖鑑點亮）
 const SPECIALTY_BONUS = 1.5;           // 做擅長的工作多賺 50%
 const PIGGY_RATE_MIN = 15, PIGGY_CAP = 20;  // 離線孵幣：每15分1幣、上限20（旅蛙三葉草式，金額小別搶學習）
+// 闖關道具（商店買）＋城市關卡（要對的道具＋答對單字才能過）
+const GEAR = [
+  {id:"flippers", ic:"🐸", name:"蛙鞋", cost:25},
+  {id:"snorkel",  ic:"🤿", name:"浮潛裝", cost:35},
+  {id:"rope",     ic:"🧗", name:"攀岩繩", cost:30},
+  {id:"torch",    ic:"🔦", name:"手電筒", cost:20}
+];
+const LEVELS = [
+  {name:"公園散步",   ic:"🌳", need:null,       words:3, coin:8},
+  {name:"游泳池",     ic:"🏊", need:"flippers", words:3, coin:12},
+  {name:"海底世界",   ic:"🐠", need:"snorkel",  words:4, coin:18},
+  {name:"攀岩場",     ic:"🧗", need:"rope",     words:4, coin:20},
+  {name:"神秘山洞",   ic:"🕳️", need:"torch",    words:4, coin:22},
+  {name:"城市大冒險", ic:"🏙️", need:null,       words:5, coin:30}
+];
 const SAVE_VER = 3;                    // 存檔版本（升級用）
 const FOODPACKS = [                    // 用金幣買食物
   {n:1, cost:1}, {n:5, cost:4}, {n:15, cost:11}
@@ -384,6 +427,8 @@ function migrate(s){
   if(!Array.isArray(s.cards)) s.cards = [];
   if(!s.wordStats || typeof s.wordStats!=="object") s.wordStats = {};
   if(!s.piggy || typeof s.piggy.ts!=="number") s.piggy = {ts: now()};
+  if(!Array.isArray(s.gear)) s.gear = [];          // 擁有的闖關道具
+  if(typeof s.level!=="number") s.level = -1;       // 已通關到第幾關（-1=只開放第0關）
   if(typeof s.bgm!=="boolean") s.bgm = true;
   if(typeof s.theme!=="string") s.theme = "meadow";
   if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
@@ -606,10 +651,67 @@ function openDex(){
   openSheet("dexWrap");
 }
 
+/* 🏙️ 城市闖關：對的道具 + 答對單字才能過關 */
+function openQuest(){ if(guardAway())return;
+  const l=document.getElementById("lvList"); l.innerHTML="";
+  LEVELS.forEach((lv,i)=>{
+    const cleared=i<=S.level, unlocked=i<=S.level+1;
+    const needGear = lv.need? GEAR.find(g=>g.id===lv.need):null;
+    const hasGear = !lv.need || S.gear.includes(lv.need);
+    const row=document.createElement("div"); row.className="lvrow"+(cleared?" cleared":"")+(!unlocked?" locked":"");
+    const sub=(needGear? "需要 "+needGear.ic+needGear.name+" · ":"")+"答對 "+lv.words+" 題 · 🪙+"+lv.coin;
+    row.innerHTML=`<div class="li">${lv.ic}</div><div class="linfo"><b>${lv.name}${cleared?' ✓':''}</b><div>${sub}</div></div>`;
+    const b=document.createElement("button"); b.className="lgo";
+    if(!unlocked){ b.textContent="🔒"; b.disabled=true; }
+    else if(!hasGear){ b.textContent="缺道具"; b.disabled=true; }
+    else { b.textContent=cleared?"再玩":"開始"; b.onclick=()=>startChallenge(i); }
+    row.appendChild(b); l.appendChild(row);
+  });
+  openSheet("questWrap");
+}
+let chLevel=-1, chNeed=0, chDone=0;
+function startChallenge(i){ chLevel=i; chNeed=LEVELS[i].words; chDone=0;
+  closeSheet("questWrap"); openSheet("chWrap");
+  document.getElementById("chTitle").textContent = LEVELS[i].ic+" "+LEVELS[i].name;
+  chNext();
+}
+function chNext(){
+  document.getElementById("chBar").style.width=(chDone/chNeed*100)+"%";
+  document.getElementById("chProg").textContent=chDone+"/"+chNeed;
+  const q=pickWord(); const opts=[q.en,...distractors(q.en,3)]; shuffle(opts);
+  const box=document.getElementById("chQuiz");
+  box.innerHTML=`<div class="ask">這個中文，英文是哪一個？</div><div class="zh">${q.zh}</div><button class="speak" onclick="speak(chCur.en)">🔊 唸唸看</button><div class="opts" id="chopts"></div>`;
+  window.chCur=q;
+  const o=document.getElementById("chopts");
+  opts.forEach(w=>{ const btn=document.createElement("button"); btn.className="opt"; btn.textContent=w;
+    btn.onclick=()=>{ document.querySelectorAll('#chopts .opt').forEach(x=>x.onclick=null);
+      if(w===q.en){ btn.classList.add("right"); markLearned(q.en); speak(q.en); chDone++; save();
+        if(chDone>=chNeed){ toast("過關！🎉"); setTimeout(passLevel,700); } else { toast("答對 "+chDone+"/"+chNeed+" 👍"); setTimeout(chNext,700); } }
+      else { btn.classList.add("wrong"); document.querySelectorAll('#chopts .opt').forEach(x=>{if(x.textContent===q.en)x.classList.add("right");}); toast("再試試 💪"); setTimeout(chNext,1000); } };
+    o.appendChild(btn); });
+  setTimeout(()=>speak(q.en),250);
+}
+function passLevel(){
+  const lv=LEVELS[chLevel]; S.coins+=lv.coin; if(chLevel>S.level) S.level=chLevel;
+  if(words.length){ const w=words[Math.floor(Math.random()*words.length)]; if(!S.cards.includes(w.en)) S.cards.push(w.en); }
+  save(); closeSheet("chWrap"); render(); toast(lv.name+" 通關！🪙+"+lv.coin+" ＋單字卡 📮"); openQuest();
+}
+function buyGear(g){ if(S.gear.includes(g.id)) return; if(S.coins<g.cost){ toast("金幣不夠買"+g.name); return; }
+  S.coins-=g.cost; S.gear.push(g.id); save(); document.getElementById("shopCoins").textContent=S.coins; openShop(); render(); toast(g.ic+g.name+" 買到了！可以去闖關 🏙️"); }
+
 /* 商店：買食物 + 家佈置 */
 function openShop(){
   document.getElementById("shopCoins").textContent = S.coins;
   document.getElementById("eggCost").textContent = EGG_COST;
+  // 闖關道具
+  const gg=document.getElementById("gearGrid"); gg.innerHTML="";
+  GEAR.forEach(g=>{
+    const owned=S.gear.includes(g.id);
+    const d=document.createElement("div"); d.className="shopitem"+(owned?" owned":"");
+    d.innerHTML=`<div class="si">${g.ic}</div><div class="sn">${g.name}</div>`;
+    const b=document.createElement("button"); b.textContent=owned?"已擁有":("🪙 "+g.cost);
+    if(!owned) b.onclick=()=>buyGear(g); d.appendChild(b); gg.appendChild(d);
+  });
   // 買食物
   const fg=document.getElementById("foodGrid"); fg.innerHTML="";
   FOODPACKS.forEach(p=>{
