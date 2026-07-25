@@ -340,7 +340,9 @@ function start(){
   const n = document.getElementById("nameInput").value.trim() || "小勇者";
   if(!S) S = migrate({name:n});
   else S.name = n;
-  save();
+  save(); enterGame();
+}
+function enterGame(){
   words = getWords(S.grades);
   document.getElementById("login").classList.add("hidden");
   document.getElementById("home").classList.remove("hidden");
@@ -519,7 +521,7 @@ function closeSheet(id){ document.getElementById(id).classList.add("hidden"); re
 function gotRight(bonus){
   const n = bonus||1; S.coins += n; S.correct += 1;   // 答對單字 → 賺錢（不是直接給食物）
   S.daily.n = (S.daily.n||0) + 1;
-  if(S.daily.n === DAILY_GOAL){ S.coins += 10; toast("每日任務完成！🎁 🪙+10"); }
+  if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
   save(); render();
 }
 function setMode(m){ mode=m;
@@ -548,14 +550,14 @@ function renderSpell(){ cur=pickWord(); spellPicked=[]; const bank=shuffle(cur.e
 function drawSlots(){ const s=document.getElementById("slots"); s.innerHTML="";
   cur.en.split("").forEach((_,i)=>{ const d=document.createElement("div"); d.className="slot"+(spellPicked[i]?" filled":""); d.textContent=spellPicked[i]||""; s.appendChild(d); }); }
 function spellTap(ch,btn){ if(spellPicked.length>=cur.en.length) return; spellPicked.push(ch); btn.classList.add("used"); drawSlots();
-  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ gotRight(2); speak(cur.en); toast("拼對了！🪙+2"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
+  if(spellPicked.length===cur.en.length){ if(spellPicked.join("")===cur.en){ gotRight(1); speak(cur.en); toast("拼對了！🪙+1"); setTimeout(renderSpell,900);} else{ toast("拼錯囉，再來 💪"); setTimeout(renderSpell,1100);} } }
 function spellUndo(){ if(!spellPicked.length) return; spellPicked.pop(); const u=document.querySelectorAll("#letters .lt.used"); if(u.length) u[u.length-1].classList.remove("used"); drawSlots(); }
-function renderListen(){ cur=pickWord(); const opts=[cur,...distractors(cur.en,3).map(en=>words.find(w=>w.en===en))]; shuffle(opts);
-  document.getElementById("quiz").innerHTML=`<div class="ask">聽發音，選出正確的中文意思</div><button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button><div class="opts" id="opts"></div>`;
+function renderListen(){ cur=pickWord(); const opts=[cur.en,...distractors(cur.en,3)]; shuffle(opts);
+  document.getElementById("quiz").innerHTML=`<div class="ask">聽發音，選出你聽到的英文單字</div><button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button><div class="opts" id="opts"></div>`;
   const box=document.getElementById("opts");
-  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.style.fontSize="20px"; b.textContent=w.zh;
-    b.onclick=()=>{ lock(); if(w.en===cur.en){ b.classList.add("right"); gotRight(2); toast("聽對了！🪙+2"); setTimeout(renderListen,800);}
-      else{ b.classList.add("wrong"); document.querySelectorAll(".opt").forEach(o=>{if(o.textContent===cur.zh)o.classList.add("right");}); toast("再聽聽看 💪"); setTimeout(renderListen,1100);} }; box.appendChild(b); });
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
+    b.onclick=()=>{ lock(); if(w===cur.en){ b.classList.add("right"); gotRight(1); speak(cur.en); toast("聽對了！🪙+1"); setTimeout(renderListen,800);}
+      else{ b.classList.add("wrong"); markRight(cur.en); toast("再聽聽看 💪"); setTimeout(renderListen,1100);} }; box.appendChild(b); });
   setTimeout(()=>speak(cur.en),300); }
 let mSel=null,mLeft=0;
 function renderMatch(){ const pool=[],seen=new Set(); while(pool.length<4&&seen.size<words.length){ const w=pickWord(); if(!seen.has(w.en)){seen.add(w.en);pool.push(w);} }
@@ -566,7 +568,7 @@ function matchTap(b,c){ if(b.classList.contains("done")) return;
   if(!mSel){ mSel={b,c}; b.classList.add("sel"); if(c.t===c.en) speak(c.en); return; }
   if(mSel.b===b){ b.classList.remove("sel"); mSel=null; return; }
   if(mSel.c.k===c.k){ b.classList.add("done"); mSel.b.classList.remove("sel"); mSel.b.classList.add("done"); mSel=null; mLeft--; gotRight(1); speak(c.en);
-    if(mLeft<=0){ toast("全部配對完成！🪙+1"); S.coins+=1; save(); render(); setTimeout(renderMatch,900);} }
+    if(mLeft<=0){ toast("全部配對完成！🎉"); save(); render(); setTimeout(renderMatch,900);} }
   else{ b.classList.add("bad"); mSel.b.classList.add("bad"); const s1=mSel.b,s2=b; setTimeout(()=>{ s1.classList.remove("bad","sel"); s2.classList.remove("bad"); },550); mSel=null; } }
 
 function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; }
@@ -581,7 +583,9 @@ function openSettings(){
     <div class="stat">玩家：<b>${S.name}</b><br>累計答對：<b>${S.correct}</b> 題 · 今日：<b>${Math.min(S.daily.n,DAILY_GOAL)}/${DAILY_GOAL}</b><br>
       等級：<b>Lv.${levelOf()}</b>（${stageFor(levelOf()).name}） · 金幣：<b>🪙${S.coins}</b><br>
       收集明信片：<b>${S.cards.length}</b> 張 · 題庫：<b id="poolCount">-</b> 字</div>
-    <button class="btn" onclick="saveSettings()">儲存並繼續</button><button class="linkbtn" onclick="resetAll()">重設全部進度</button></div>`;
+    <button class="btn" onclick="saveSettings()">儲存並繼續</button>
+    <button class="linkbtn" style="color:#4a63d6" onclick="renameUser()">✏️ 改名字</button>
+    <button class="linkbtn" onclick="resetAll()">重設全部進度</button></div>`;
   document.body.appendChild(m);
   const g=document.getElementById("gradeChk");
   for(let i=1;i<=6;i++){ const on=S.grades.includes(i); const d=document.createElement("div"); d.className="gchk"+(on?" on":""); d.textContent=i+"年級"; d.dataset.g=i; d.onclick=()=>{d.classList.toggle("on"); updatePool();}; g.appendChild(d); }
@@ -592,6 +596,7 @@ function updatePool(){ const gs=chosenGrades(); document.getElementById("poolCou
 function saveSettings(){ let gs=chosenGrades(); if(!gs.length) gs=[1]; S.grades=gs; save(); words=getWords(gs);
   document.getElementById("settingsModal").remove(); if(!document.getElementById("learnWrap").classList.contains("hidden")) setMode(mode); toast("已更新單字範圍 ✅"); }
 function resetAll(){ if(!confirm("確定要清空這台裝置上的進度嗎？")) return; localStorage.removeItem("petSave"); location.reload(); }
+function renameUser(){ const n=prompt("輸入新名字：", S.name); if(n===null) return; const t=n.trim(); if(!t) return; S.name=t; save(); render(); const md=document.getElementById("settingsModal"); if(md) md.remove(); toast("改名成功："+t); }
 
 function lock(){ document.querySelectorAll(".opt").forEach(o=>o.onclick=null); }
 function markRight(en){ document.querySelectorAll(".opt").forEach(o=>{ if(o.textContent===en) o.classList.add("right"); }); }
@@ -599,7 +604,8 @@ function speak(t){ if(!t||!window.speechSynthesis) return; const u=new SpeechSyn
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1000); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-if(S){ document.getElementById("nameInput").value = S.name || ""; }
+// 已有存檔 → 自動進遊戲，不必每次輸入名字（第一次玩才顯示登入畫面）
+if(S){ enterGame(); }
 </script>
 </body>
 </html>
