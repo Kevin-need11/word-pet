@@ -162,6 +162,17 @@
   .mole{width:90%;margin-bottom:7px;background:#fff;color:#2b2b3a;border:2px solid #e3e7f5;border-radius:12px;padding:14px 4px;font-size:20px;font-weight:900;cursor:pointer;transition:transform .26s cubic-bezier(.34,1.56,.64,1),background .15s;}
   .mole.bonk{background:#7bd389;color:#fff;}
   .mole.miss{background:#ff8a8a;color:#fff;}
+  /* 🫧 泡泡消消 */
+  .bubblewrap{position:relative;flex:1;min-height:280px;overflow:hidden;margin-top:10px;background:linear-gradient(#eaf4ff,#cfe8ff);border-radius:14px;}
+  .bubble{position:absolute;bottom:-76px;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 32% 30%,#fff,#9fd3ff 62%,#5bb0f0);border:none;color:#123;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;padding:4px;animation:rise linear forwards;}
+  @keyframes rise{ to{ transform:translateY(-360px); opacity:.18; } }
+  .bubble.pop{animation:none;transform:scale(1.5);opacity:0;transition:.25s;}
+  /* 🎣 釣單字 */
+  .fishwrap{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
+  .fish{background:linear-gradient(90deg,#7ec7ff,#4aa8e8);color:#fff;border:none;border-radius:40px;padding:16px 10px;font-size:19px;font-weight:900;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.12);animation:swim 2.2s ease-in-out infinite alternate;}
+  @keyframes swim{ from{transform:translateX(-8px);} to{transform:translateX(8px);} }
+  .fish.caught{background:#7bd389;transform:scale(1.1);}
+  .fish.slip{opacity:.4;}
   .opt:active{transform:scale(.97);}
   .opt.right{background:#39d353;border-color:#2bb344;color:#fff;}
   .opt.wrong{background:#ff5b6e;border-color:#e03b50;color:#fff;}
@@ -281,6 +292,8 @@
       <button class="tab" data-mode="match" onclick="setMode('match')">配對</button>
       <button class="tab" data-mode="flash" onclick="setMode('flash')">⚡快閃</button>
       <button class="tab" data-mode="whack" onclick="setMode('whack')">🔨打地鼠</button>
+      <button class="tab" data-mode="bubble" onclick="setMode('bubble')">🫧泡泡</button>
+      <button class="tab" data-mode="fish" onclick="setMode('fish')">🎣釣魚</button>
     </div>
     <div class="quiz" id="quiz"></div>
   </div></div>
@@ -802,7 +815,8 @@ function gotRight(bonus){
 function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
-  else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack(); }
+  else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack();
+  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); }
 function pickWord(){ return words[Math.floor(Math.random()*words.length)]; }
 function distractors(en,n){ const o=[]; let g=0; while(o.length<n&&g++<200){ const w=pickWord().en; if(w!==en&&!o.includes(w)) o.push(w);} return o; }
 
@@ -928,6 +942,68 @@ function whackNext(){
       } else { mole.classList.add("miss"); setTimeout(()=>mole.classList.remove("miss"),400); }
     };
     hole.appendChild(mole); grid.appendChild(hole);
+  });
+}
+
+/* 🫧 泡泡消消：泡泡往上飄，點破「正確英文」那顆 */
+let bubbleScore=0;
+function renderBubble(){
+  bubbleScore=0;
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">🫧 點破「正確英文」的泡泡！</div>
+     <div class="zh" id="bubbleZh" style="font-size:34px">…</div>
+     <div class="flashinfo" style="margin:2px 0">戳破 <b id="bubbleScore">0</b> 個 🪙</div>
+     <div class="bubblewrap" id="bubbleWrap"></div>`;
+  bubbleRound();
+}
+function bubbleRound(){
+  const wrap=document.getElementById("bubbleWrap"); if(!wrap) return;
+  wrap.innerHTML="";
+  cur=pickWord(); const zh=document.getElementById("bubbleZh"); if(zh) zh.textContent=cur.zh; speak(cur.en);
+  const opts=[cur.en,...distractors(cur.en,4)]; shuffle(opts);
+  opts.forEach((w,i)=>{
+    const b=document.createElement("button"); b.className="bubble"; b.textContent=w;
+    b.style.left=(5+i*18.5)+"%";
+    b.style.animationDuration=(5.5+Math.random()*2.5)+"s";
+    b.style.animationDelay=(i*0.25)+"s";
+    b.onclick=()=>{
+      if(w===cur.en){ b.classList.add("pop");
+        bubbleScore++; const es=document.getElementById("bubbleScore"); if(es) es.textContent=bubbleScore;
+        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        speak(cur.en); toast("戳破了！🪙+1"); setTimeout(bubbleRound,450);
+      } else { b.style.transform="scale(.8)"; setTimeout(()=>{ if(b) b.style.transform=""; },200); }
+    };
+    wrap.appendChild(b);
+  });
+}
+
+/* 🎣 釣單字：聽發音，釣起正確的英文魚（練聽力） */
+let fishScore=0;
+function renderFish(){
+  fishScore=0;
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">🎣 聽發音，釣起正確的英文魚！</div>
+     <button class="speak big" onclick="speak(cur.en)">🔊 再聽一次</button>
+     <div class="flashinfo" style="margin:8px 0">釣到 <b id="fishScore">0</b> 條 🪙</div>
+     <div class="fishwrap" id="fishWrap"></div>`;
+  fishRound();
+}
+function fishRound(){
+  const wrap=document.getElementById("fishWrap"); if(!wrap) return;
+  wrap.innerHTML="";
+  cur=pickWord(); const opts=[cur.en,...distractors(cur.en,3)]; shuffle(opts);
+  setTimeout(()=>speak(cur.en),200);
+  opts.forEach((w,i)=>{
+    const f=document.createElement("button"); f.className="fish"; f.textContent="🐟 "+w;
+    f.style.animationDelay=(i*0.3)+"s";
+    f.onclick=()=>{
+      if(w===cur.en){ f.classList.add("caught");
+        fishScore++; const es=document.getElementById("fishScore"); if(es) es.textContent=fishScore;
+        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        speak(cur.en); toast("釣到了！🪙+1"); setTimeout(fishRound,550);
+      } else { f.classList.add("slip"); setTimeout(()=>f.classList.remove("slip"),400); }
+    };
+    wrap.appendChild(f);
   });
 }
 
