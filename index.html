@@ -812,6 +812,8 @@ function gotRight(bonus){
   if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
   save(); render();
 }
+// 小遊戲共用計分（瘦身：原本在 flash/whack/bubble/fish 各寫一次）
+function scoreOne(bonus){ S.coins+=(bonus||1); S.correct++; S.daily.n=(S.daily.n||0)+1; save(); }
 function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
@@ -894,7 +896,7 @@ function flashNext(){
       if(w===cur.en){ b.classList.add("right"); markLearned(cur.en);
         flashScore++; flashStreak++;
         let bonus=1; if(flashStreak%5===0){ bonus=2; toast("🔥 連對 "+flashStreak+"！🪙+2"); }
-        S.coins+=bonus; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        scoreOne(bonus);
         const es=document.getElementById("flashScore"), et=document.getElementById("flashStreak");
         if(es) es.textContent=flashScore; if(et) et.textContent=flashStreak;
         flashNext();
@@ -937,7 +939,7 @@ function whackNext(){
     mole.onclick=()=>{
       if(w===cur.en){ mole.classList.add("bonk"); whackScore++;
         const es=document.getElementById("whackScore"); if(es) es.textContent=whackScore;
-        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        markLearned(cur.en); scoreOne(1);
         speak(cur.en); toast("敲到了！🪙+1"); setTimeout(whackNext,520);
       } else { mole.classList.add("miss"); setTimeout(()=>mole.classList.remove("miss"),400); }
     };
@@ -969,7 +971,7 @@ function bubbleRound(){
     b.onclick=()=>{
       if(w===cur.en){ b.classList.add("pop");
         bubbleScore++; const es=document.getElementById("bubbleScore"); if(es) es.textContent=bubbleScore;
-        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        markLearned(cur.en); scoreOne(1);
         speak(cur.en); toast("戳破了！🪙+1"); setTimeout(bubbleRound,450);
       } else { b.style.transform="scale(.8)"; setTimeout(()=>{ if(b) b.style.transform=""; },200); }
     };
@@ -999,7 +1001,7 @@ function fishRound(){
     f.onclick=()=>{
       if(w===cur.en){ f.classList.add("caught");
         fishScore++; const es=document.getElementById("fishScore"); if(es) es.textContent=fishScore;
-        markLearned(cur.en); S.coins++; S.correct++; S.daily.n=(S.daily.n||0)+1; save();
+        markLearned(cur.en); scoreOne(1);
         speak(cur.en); toast("釣到了！🪙+1"); setTimeout(fishRound,550);
       } else { f.classList.add("slip"); setTimeout(()=>f.classList.remove("slip"),400); }
     };
