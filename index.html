@@ -86,6 +86,8 @@
   .editbtn.on{background:#5b8def;color:#fff;}
   .piggy{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;background:#ffcf3f;color:#5b3a00;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9a900;animation:pigbob 1s ease-in-out infinite;}
   .piggy:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #d9a900;}
+  .visitor{position:absolute;top:112px;left:50%;transform:translateX(-50%);z-index:6;background:#7bd389;color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #4fa96a;animation:pigbob 1s ease-in-out infinite;}
+  .visitor:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #4fa96a;}
   @keyframes pigbob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-5px);}}
   .themecard{border:2px solid #e3e7f5;border-radius:12px;overflow:hidden;cursor:pointer;}
   .themecard .sw{height:44px;} .themecard .tn{font-size:12px;font-weight:800;padding:4px 2px;text-align:center;color:#3a3a55;}
@@ -267,6 +269,7 @@
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
+      <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
       <div class="decor" id="decor"></div>
       <div class="pets" id="pets"></div>
       <div class="petname" id="petName">小龍</div>
@@ -602,6 +605,9 @@ function render(){
   document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
   const pa=piggyAvail(), pb=document.getElementById("piggyBtn");
   if(pa>0 && !editMode){ pb.classList.remove("hidden"); document.getElementById("piggyN").textContent=pa; } else pb.classList.add("hidden");
+  const vb=document.getElementById("visitorBtn");
+  if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
+    if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
   renderPets(); renderDecor(); renderAway();
 }
 function piggyAvail(){ if(!S.piggy) return 0; return Math.min(PIGGY_CAP, Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
@@ -681,6 +687,8 @@ function fmt(ms){ const s=Math.max(0,Math.ceil(ms/1000)); const h=Math.floor(s/3
 function onTick(){ decayCare(); refreshAway();
   // 🏡 居家自主行動：在家時每 ~11-20 秒換一個家事動作，正在存錢就冒個 🪙 讓你看到牠有在賺
   if(homeActive() && now()>=chore.until){ rotateChore(); if(piggyAvail()>0) coinPop(1); renderPets(); }
+  // 🐦 訪客：在家時偶爾有小動物來訪（無訪客時每秒約 0.35% 機率）
+  if(homeActive() && !S.visitor && Math.random()<0.0035){ spawnVisitor(); }
   // 每分鐘刷新一次整體顯示（care/piggy）
   if(now()%60000 < 1000) render();
 }
@@ -742,6 +750,29 @@ function jobRow(j,kind){
   const b=document.createElement("button"); b.className="jgo"; b.textContent="出發"; b.onclick=()=>goAway(kind,j);
   div.appendChild(b); return div;
 }
+
+/* 🐦 訪客系統：小動物不定時來訪，答對牠出的單字題＝招待成功，回禮金幣＋機率稀有明信片（不做懲罰） */
+const VISITORS=[{ic:"🐦",name:"小鳥"},{ic:"🐿️",name:"松鼠"},{ic:"🐢",name:"烏龜"},{ic:"🐰",name:"兔子"},{ic:"🦔",name:"刺蝟"},{ic:"🐝",name:"蜜蜂"}];
+function spawnVisitor(){ const v=VISITORS[Math.floor(Math.random()*VISITORS.length)]; S.visitor={ic:v.ic,name:v.name,until:now()+300000}; save(); render(); toast(v.ic+" "+v.name+"來拜訪了！點「招待」招呼牠 🎁"); }
+function openVisitor(){
+  if(!S.visitor || !words.length) return;
+  const q=pickWord(); const opts=[q.en,...distractors(q.en,3)]; shuffle(opts);
+  const m=document.createElement("div"); m.className="modal"; m.id="visitorModal";
+  m.innerHTML=`<div class="sheet"><h2>${S.visitor.ic} ${S.visitor.name}來拜訪！</h2><div class="hint">答對牠出的單字題就能招待牠，牠會回禮 🎁</div><div class="quiz"><div class="zh">${q.zh}</div><button class="speak" onclick="speak('${q.en}')">🔊 唸唸看</button><div class="opts" id="vopts"></div></div><button class="linkbtn" onclick="closeVisitor()">下次再招待</button></div>`;
+  document.body.appendChild(m);
+  const box=m.querySelector("#vopts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w; b.onclick=()=>visitorAnswer(w,q.en,b); box.appendChild(b); });
+  setTimeout(()=>speak(q.en),250);
+}
+function visitorAnswer(w,ans,btn){
+  if(w===ans){ btn.classList.add("right"); speak(ans); if(typeof markLearned==="function") markLearned(ans);
+    const coin=8+Math.floor(Math.random()*10); S.coins+=coin;
+    let ex=""; if(Math.random()<0.5 && words.length){ const c=words[Math.floor(Math.random()*words.length)]; if(gainCard(c.en,1)) ex="＋明信片「"+c.en+"」"+cardBadge(c.en); }
+    S.visitor=null; save();
+    setTimeout(()=>{ closeVisitor(); render(); toast("招待成功！🪙+"+coin+" "+ex); },450);
+  } else { btn.classList.add("wrong"); document.querySelectorAll('#vopts .opt').forEach(x=>{ if(x.textContent===ans) x.classList.add("right"); }); toast("再試試看 💪"); }
+}
+function closeVisitor(){ const m=document.getElementById("visitorModal"); if(m) m.remove(); }
 
 /* 單字明信片：探險帶回。稀有度普通/稀有(⭐)/金卡(🌟)，第一次拿到時隨機決定 */
 function gainCard(en, luck){ if(S.cards.includes(en)) return false; S.cards.push(en); if(!S.cardMeta) S.cardMeta={}; luck=luck||0; const r=Math.random(); let rar; if(luck>=2){ rar = r<0.20?"gold":"rare"; } else if(luck>=1){ rar = r<0.10?"gold":(r<0.55?"rare":"normal"); } else { rar = r<0.05?"gold":(r<0.30?"rare":"normal"); } S.cardMeta[en]=rar; return true; }
