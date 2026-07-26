@@ -66,6 +66,11 @@
   .petsprite .out{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:16px;background:rgba(255,255,255,.85);border-radius:999px;padding:1px 6px;font-weight:900;color:#3a5a7a;white-space:nowrap;}
   .petsprite.away{opacity:.6;}
   .awaytag{position:absolute;top:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:5;}
+  /* 居家自主行動 */
+  .chore{position:absolute;top:-34px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(255,255,255,.92);border-radius:999px;padding:3px 11px;font-size:14px;font-weight:900;color:#6b4a1a;box-shadow:0 2px 7px rgba(0,0,0,.14);z-index:4;animation:chorein .35s ease;}
+  @keyframes chorein{from{opacity:0;transform:translateX(-50%) translateY(6px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+  .coinfloat{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:20px;font-weight:900;color:#d9860a;z-index:5;pointer-events:none;animation:coinup 1s ease forwards;}
+  @keyframes coinup{from{opacity:0;transform:translate(-50%,10px);}30%{opacity:1;}to{opacity:0;transform:translate(-50%,-42px);}}
   .awaytag .atimer{background:rgba(43,107,214,.92);color:#fff;font-size:12px;font-weight:900;padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums;}
   .awaytag .aclaim{background:#39d353;color:#fff;border:none;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #2bb344;animation:pigbob 1s ease-in-out infinite;}
   .petsprite.active .pi{filter:drop-shadow(0 10px 9px rgba(60,90,120,.3));}
@@ -589,6 +594,13 @@ function render(){
 }
 function piggyAvail(){ if(!S.piggy) return 0; return Math.min(PIGGY_CAP, Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
 function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
+/* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
+const CHORES=[{ic:"🍳",t:"煮飯中"},{ic:"🍲",t:"煮湯中"},{ic:"🧹",t:"打掃中"},{ic:"🪴",t:"澆花中"},{ic:"📖",t:"讀單字"},{ic:"🎣",t:"釣魚中"},{ic:"🧺",t:"洗衣服"},{ic:"☕",t:"泡茶中"},{ic:"🎨",t:"畫畫中"},{ic:"🛁",t:"泡澡中"}];
+let chore={idx:0, until:0};
+function curChore(){ return CHORES[chore.idx%CHORES.length]; }
+function homeActive(){ const p=P(); return p && !p.away && !editMode; }
+function rotateChore(){ let n; do{ n=Math.floor(Math.random()*CHORES.length); }while(CHORES.length>1 && n===chore.idx); chore.idx=n; chore.until=now()+(11000+Math.random()*9000); }
+function coinPop(n){ const box=document.getElementById("pets"); if(!box) return; const f=document.createElement("div"); f.className="coinfloat"; f.textContent="🪙+"+n; box.appendChild(f); setTimeout(()=>{ if(f.parentNode) f.parentNode.removeChild(f); },1000); }
 const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:44},{x:63,y:46},{x:20,y:46},{x:80,y:46},{x:50,y:72}];
 function renderPets(){
   const box = document.getElementById("pets"); box.innerHTML="";
@@ -600,6 +612,7 @@ function renderPets(){
     el.style.left=x+"%"; el.style.top=y+"%";
     let tag = "";
     if(p.away){ tag = `<div class="awaytag"><span class="atimer" id="atimer-${i}"></span><button class="aclaim hidden" id="aclaim-${i}" onclick="event.stopPropagation();claimAway(${i})">🎁 領取</button></div>`; }
+    else if(active && !editMode){ tag = `<div class="chore">${curChore().ic} ${curChore().t}…</div>`; }
     el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?96:56}px;"><img src="${st.img}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.emoji}'"></div><div class="psh" style="width:${active?96:56}px"></div>${tag}`;
     el.onclick=()=>{ if(!active) setActive(i); };
     box.appendChild(el);
@@ -654,6 +667,8 @@ function fmt(ms){ const s=Math.max(0,Math.ceil(ms/1000)); const h=Math.floor(s/3
   return (h>0?h+":":"")+String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0"); }
 
 function onTick(){ decayCare(); refreshAway();
+  // 🏡 居家自主行動：在家時每 ~11-20 秒換一個家事動作，正在存錢就冒個 🪙 讓你看到牠有在賺
+  if(homeActive() && now()>=chore.until){ rotateChore(); if(piggyAvail()>0) coinPop(1); renderPets(); }
   // 每分鐘刷新一次整體顯示（care/piggy）
   if(now()%60000 < 1000) render();
 }
