@@ -201,6 +201,11 @@
   .jobrow .jinfo{flex:1;} .jobrow .jinfo b{font-size:16px;} .jobrow .jinfo div{font-size:12px;color:#8a8aa0;font-weight:700;}
   .jobrow .jgo{background:#5b8def;color:#fff;border:none;border-radius:12px;padding:10px 16px;font-weight:900;font-size:14px;cursor:pointer;}
   .jobrow .jgo:active{transform:scale(.96);}
+  /* 🎒 探險打包 */
+  .packrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+  .packbtn{background:#fff;border:2px solid #e3e7f5;border-radius:10px;padding:6px 2px;font-size:12px;font-weight:800;color:#3a3a55;cursor:pointer;line-height:1.3;text-align:center;}
+  .packbtn.on{background:#5b8def;border-color:#4a63d6;color:#fff;}
+  .packbtn small{font-weight:700;opacity:.85;}
 
   /* 家佈置商店 */
   .shopgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
@@ -420,6 +425,10 @@ const TRIPS = [
   {id:"mount",ic:"⛰️", name:"爬山探險",   min:90, coin:18},
   {id:"sea",  ic:"🏖️", name:"海邊旅行",   min:180, coin:40}
 ];
+/* 🎒 探險打包：便當=帶回幾張明信片、幸運符=稀有度加成（出發前選，花金幣＝金幣出口） */
+const BENTO = [{ic:"🍙",name:"小便當",cost:0,cards:1},{ic:"🍱",name:"中便當",cost:10,cards:2},{ic:"🎁",name:"大便當",cost:25,cards:3}];
+const CHARM = [{ic:"—",name:"不帶",cost:0,luck:0},{ic:"🔔",name:"銅符",cost:8,luck:1},{ic:"🍀",name:"金符",cost:20,luck:2}];
+let packBento=0, packCharm=0;
 const SHOP = [
   {id:"plant", ic:"🪴", name:"盆栽", cost:15}, {id:"flower", ic:"🌸", name:"花叢", cost:20},
   {id:"sofa", ic:"🛋️", name:"沙發", cost:40}, {id:"pic", ic:"🖼️", name:"掛畫", cost:35},
@@ -679,9 +688,14 @@ function onTick(){ decayCare(); refreshAway();
 function goAway(kind, job){
   const p=P();
   if(p.away){ toast("牠已經出門了"); return; }
-  let coin = job.coin;
+  let coin = job.coin, pack=null;
   if(kind==="work" && job.id===p.specialty) coin = Math.round(coin*SPECIALTY_BONUS);   // 擅長的工作多賺
-  p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin, until: now() + job.min*60000};
+  if(kind==="trip"){                                     // 🎒 探險打包：便當+幸運符 花金幣
+    const b=BENTO[packBento], c=CHARM[packCharm], cost=b.cost+c.cost;
+    if(S.coins < cost){ toast("金幣不夠打包 🪙 少了 "+(cost-S.coins)); return; }
+    S.coins -= cost; pack={cards:b.cards, luck:c.luck};
+  }
+  p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin, until: now() + job.min*60000, pack};
   save(); closeSheet(kind==="work"?"workWrap":"tripWrap"); render();
   toast(job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
 }
@@ -692,8 +706,10 @@ function claimAway(i){
   const gain = bonus? Math.round(a.coin*1.2) : a.coin;
   S.coins += gain;
   let extra = "";
-  if(a.kind==="trip" && words.length){ const w = words[Math.floor(Math.random()*words.length)];
-    gainCard(w.en); extra = "＋單字明信片「"+w.en+"」"+cardBadge(w.en); }
+  if(a.kind==="trip" && words.length){
+    const n=(a.pack&&a.pack.cards)||1, luck=(a.pack&&a.pack.luck)||0, got=[];
+    for(let k=0;k<n;k++){ const w=words[Math.floor(Math.random()*words.length)]; if(gainCard(w.en,luck)) got.push(w.en+cardBadge(w.en)); }
+    extra = got.length? "＋明信片 "+got.join("、") : "＋明信片(這次都已收集過)"; }
   p.care.mood = Math.min(100, p.care.mood+15);
   p.away = null; save(); render();
   toast("回來了！🪙+"+gain+" "+extra);
@@ -701,7 +717,20 @@ function claimAway(i){
 
 function openWork(){ if(guardAway())return; const l=document.getElementById("jobList"); l.innerHTML="";
   JOBS.forEach(j=> l.appendChild(jobRow(j,"work"))); openSheet("workWrap"); }
-function openTrip(){ if(guardAway())return; const l=document.getElementById("tripList"); l.innerHTML="";
+function renderPack(){
+  const host=document.getElementById("packPanel"); if(!host) return;
+  const cost=BENTO[packBento].cost+CHARM[packCharm].cost;
+  host.innerHTML =
+    `<div style="font-weight:900;font-size:13px;margin:2px 0 6px;color:#4a63d6;">🎒 出發前打包</div>`+
+    `<div style="font-size:12px;color:#8a8aa0;margin-bottom:3px;">🍱 便當（帶回幾張明信片）</div><div class="packrow">`+
+    BENTO.map((x,i)=>`<button class="packbtn${i===packBento?' on':''}" onclick="packBento=${i};renderPack()">${x.ic} ${x.name}<br><small>${x.cost?('🪙'+x.cost):'免費'}·${x.cards}張</small></button>`).join("")+`</div>`+
+    `<div style="font-size:12px;color:#8a8aa0;margin:6px 0 3px;">🍀 幸運符（稀有度）</div><div class="packrow">`+
+    CHARM.map((x,i)=>`<button class="packbtn${i===packCharm?' on':''}" onclick="packCharm=${i};renderPack()">${x.ic} ${x.name}<br><small>${x.cost?('🪙'+x.cost):'免費'}</small></button>`).join("")+`</div>`+
+    `<div style="font-size:12px;font-weight:800;color:#e08a2f;margin-top:6px;">打包花費 🪙 ${cost}（你有 ${S.coins}）</div>`;
+}
+function openTrip(){ if(guardAway())return; const l=document.getElementById("tripList");
+  l.innerHTML='<div id="packPanel" style="background:#f7f9ff;border-radius:12px;padding:10px 12px;margin-bottom:10px;"></div>';
+  renderPack();
   TRIPS.forEach(j=> l.appendChild(jobRow(j,"trip"))); openSheet("tripWrap"); }
 function guardAway(){ if(P().away){ toast("牠出門了，等牠回來 🕐"); return true; } return false; }
 function jobRow(j,kind){
@@ -715,7 +744,7 @@ function jobRow(j,kind){
 }
 
 /* 單字明信片：探險帶回。稀有度普通/稀有(⭐)/金卡(🌟)，第一次拿到時隨機決定 */
-function gainCard(en){ if(S.cards.includes(en)) return false; S.cards.push(en); if(!S.cardMeta) S.cardMeta={}; const r=Math.random(); S.cardMeta[en]= r<0.05?"gold": (r<0.30?"rare":"normal"); return true; }
+function gainCard(en, luck){ if(S.cards.includes(en)) return false; S.cards.push(en); if(!S.cardMeta) S.cardMeta={}; luck=luck||0; const r=Math.random(); let rar; if(luck>=2){ rar = r<0.20?"gold":"rare"; } else if(luck>=1){ rar = r<0.10?"gold":(r<0.55?"rare":"normal"); } else { rar = r<0.05?"gold":(r<0.30?"rare":"normal"); } S.cardMeta[en]=rar; return true; }
 function cardBadge(en){ if(!S.cards.includes(en)) return ""; const r=S.cardMeta&&S.cardMeta[en]; return r==="gold"?" 🌟":(r==="rare"?" ⭐":" 📮"); }
 
 /* 單字圖鑑（雙軸：年級選定範圍內、依主題分組）：答對 MASTER_N 次才點亮＝收集門檻就是學會門檻 */
