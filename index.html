@@ -99,6 +99,8 @@
   .dexcard .dz{font-size:13px;color:#8a8aa0;font-weight:700;}
   .dexcard .dp{font-size:11px;font-weight:800;color:#aab0c4;margin-top:2px;}
   .dexcard.lit .dp{color:#39b566;}
+  .dexthead{grid-column:1/-1;font-weight:900;font-size:14px;color:#4a63d6;margin:12px 0 2px;}
+  .dexcard.gold{border-color:#ffcf3f;background:#fff9e6;}
   .hero{display:flex;flex-direction:column;align-items:center;z-index:2;}
   .hero .avatar{font-size:130px;line-height:1;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
   .hero .avatar img{max-height:200px;max-width:74%;object-fit:contain;filter:drop-shadow(0 12px 10px rgba(60,90,120,.25));}
@@ -494,6 +496,7 @@ function migrate(s){
   if(!Array.isArray(s.cards)) s.cards = [];
   if(!s.wordStats || typeof s.wordStats!=="object") s.wordStats = {};
   if(!s.piggy || typeof s.piggy.ts!=="number") s.piggy = {ts: now()};
+  if(!s.cardMeta || typeof s.cardMeta!=="object") s.cardMeta = {};   // 明信片稀有度 {en:'normal|rare|gold'}
   if(!Array.isArray(s.gear)) s.gear = [];          // 擁有的闖關道具
   if(typeof s.level!=="number") s.level = -1;       // 已通關到第幾關（-1=只開放第0關）
   if(typeof s.bgm!=="boolean") s.bgm = true;
@@ -690,7 +693,7 @@ function claimAway(i){
   S.coins += gain;
   let extra = "";
   if(a.kind==="trip" && words.length){ const w = words[Math.floor(Math.random()*words.length)];
-    if(!S.cards.includes(w.en)) S.cards.push(w.en); extra = "＋單字明信片「"+w.en+"」📮"; }
+    gainCard(w.en); extra = "＋單字明信片「"+w.en+"」"+cardBadge(w.en); }
   p.care.mood = Math.min(100, p.care.mood+15);
   p.away = null; save(); render();
   toast("回來了！🪙+"+gain+" "+extra);
@@ -711,18 +714,28 @@ function jobRow(j,kind){
   div.appendChild(b); return div;
 }
 
-/* 單字圖鑑：答對 MASTER_N 次才點亮＝收集門檻就是學會門檻 */
+/* 單字明信片：探險帶回。稀有度普通/稀有(⭐)/金卡(🌟)，第一次拿到時隨機決定 */
+function gainCard(en){ if(S.cards.includes(en)) return false; S.cards.push(en); if(!S.cardMeta) S.cardMeta={}; const r=Math.random(); S.cardMeta[en]= r<0.05?"gold": (r<0.30?"rare":"normal"); return true; }
+function cardBadge(en){ if(!S.cards.includes(en)) return ""; const r=S.cardMeta&&S.cardMeta[en]; return r==="gold"?" 🌟":(r==="rare"?" ⭐":" 📮"); }
+
+/* 單字圖鑑（雙軸：年級選定範圍內、依主題分組）：答對 MASTER_N 次才點亮＝收集門檻就是學會門檻 */
 function openDex(){
   const seen=new Set(), list=[];
   getWords(S.grades).forEach(w=>{ if(!seen.has(w.en)){ seen.add(w.en); list.push(w); } });
+  const byTheme={};
+  list.forEach(w=>{ const t=w.theme||"其他"; (byTheme[t]=byTheme[t]||[]).push(w); });
   let learned=0;
   const g=document.getElementById("dexGrid"); g.innerHTML="";
-  list.forEach(w=>{
-    const c=S.wordStats[w.en]||0, lit=c>=MASTER_N; if(lit) learned++;
-    const d=document.createElement("div"); d.className="dexcard"+(lit?" lit":"");
-    const card=S.cards.includes(w.en)?" 📮":"";
-    d.innerHTML=`<div class="de">${w.en}${card}</div><div class="dz">${w.zh}</div><div class="dp">${lit?'✨ 已學會':('熟練 '+c+'/'+MASTER_N)}</div>`;
-    d.onclick=()=>speak(w.en); g.appendChild(d);
+  Object.keys(byTheme).forEach(t=>{
+    const arr=byTheme[t]; let tl=0; arr.forEach(w=>{ if((S.wordStats[w.en]||0)>=MASTER_N) tl++; }); learned+=tl;
+    const h=document.createElement("div"); h.className="dexthead"; h.textContent=`🏷️ ${t}　${tl}/${arr.length}`; g.appendChild(h);
+    arr.forEach(w=>{
+      const c=S.wordStats[w.en]||0, lit=c>=MASTER_N;
+      const gold=(S.cardMeta&&S.cardMeta[w.en]==="gold"&&S.cards.includes(w.en));
+      const d=document.createElement("div"); d.className="dexcard"+(lit?" lit":"")+(gold?" gold":"");
+      d.innerHTML=`<div class="de">${w.en}${cardBadge(w.en)}</div><div class="dz">${w.zh}</div><div class="dp">${lit?'✨ 已學會':('熟練 '+c+'/'+MASTER_N)}</div>`;
+      d.onclick=()=>speak(w.en); g.appendChild(d);
+    });
   });
   document.getElementById("dexProg").textContent = learned+"/"+list.length;
   openSheet("dexWrap");
@@ -770,7 +783,7 @@ function chNext(){
 }
 function passLevel(){
   const lv=LEVELS[chLevel]; S.coins+=lv.coin; if(chLevel>S.level) S.level=chLevel;
-  if(words.length){ const w=words[Math.floor(Math.random()*words.length)]; if(!S.cards.includes(w.en)) S.cards.push(w.en); }
+  if(words.length){ const w=words[Math.floor(Math.random()*words.length)]; gainCard(w.en); }
   save(); closeSheet("chWrap"); render(); toast(lv.name+" 通關！🪙+"+lv.coin+" ＋單字卡 📮"); openQuest();
 }
 function buyGear(g){ if(S.gear.includes(g.id)) return; if(S.coins<g.cost){ toast("金幣不夠買"+g.name); return; }
