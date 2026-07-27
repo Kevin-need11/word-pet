@@ -248,6 +248,7 @@
     <p>學英文單字，養出你自己的小龍！</p>
     <input id="nameInput" maxlength="8" placeholder="輸入你的名字">
     <button class="btn" onclick="start()">開始冒險 →</button>
+    <button class="linkbtn" style="color:#2a9d8f;font-weight:900;margin-top:14px" onclick="cloudLogin()">☁️ 用帳號登入（換裝置／載最新版）</button>
   </div>
 
   <div id="home" class="hidden">
@@ -501,9 +502,11 @@ function cloudLogin(){
   CloudSave.login(nm,pn,function(res){
     if(!res.ok){ toast(res.msg==='wrong_pin'?"密碼不對，再試一次":"登入失敗，網路再試"); return; }
     CloudSave.load(function(data){
-      if(data){ if(confirm("雲端有這個帳號的存檔！\n要把雲端進度下載、覆蓋這台嗎？\n（在新手機第一次請按「確定」）")){ try{ localStorage.setItem("petSave",data); location.reload(); return; }catch(e){} } else { CloudSave.push(localStorage.getItem("petSave")); } }
+      if(data && confirm("雲端有這個帳號的存檔！\n要把雲端進度下載、覆蓋這台嗎？\n（在新手機/新裝置第一次請按「確定」）")){ try{ localStorage.setItem("petSave",data); }catch(e){} }
       else { CloudSave.push(localStorage.getItem("petSave")); }
-      toast("雲端存檔已開啟 ☁️"); var m=document.getElementById("settingsModal"); if(m)m.remove();
+      toast("登入成功，載入最新版…☁️");
+      // ★登入＝同步存檔＋強制載最新版(加時間戳繞過書簽/PWA快取);存檔在localStorage保留
+      location.href = location.pathname + "?r=" + Date.now();
     });
   });
 }
@@ -1244,6 +1247,7 @@ function openSettings(){
     <button class="btn" onclick="saveSettings()">儲存並繼續</button>
     <button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="cloudLogin()">☁️ 雲端存檔（換手機不丟）</button>
     <button class="linkbtn" style="color:#4a63d6" onclick="renameUser()">✏️ 改名字</button>
+    <button class="linkbtn" style="color:#e0913a;font-weight:900" onclick="reloadLatest()">🔄 重新整理（載入最新版）</button>
     <button class="linkbtn" onclick="resetAll()">重設全部進度</button></div>`;
   document.body.appendChild(m);
   const g=document.getElementById("gradeChk");
@@ -1255,6 +1259,8 @@ function updatePool(){ const gs=chosenGrades(); document.getElementById("poolCou
 function saveSettings(){ let gs=chosenGrades(); if(!gs.length) gs=[1]; S.grades=gs; save(); words=getWords(gs);
   document.getElementById("settingsModal").remove(); if(!document.getElementById("learnWrap").classList.contains("hidden")) setMode(mode); toast("已更新單字範圍 ✅"); }
 function resetAll(){ if(!confirm("確定要清空這台裝置上的進度嗎？")) return; localStorage.removeItem("petSave"); location.reload(); }
+/* 🔄 重新整理載入最新版：加時間戳參數繞過快取(書簽/全螢幕PWA沒有瀏覽器重整鈕時用);localStorage進度保留不受影響 */
+function reloadLatest(){ try{ toast("載入最新版中…🔄"); }catch(e){} location.href = location.pathname + "?r=" + Date.now(); }
 function renameUser(){ const n=prompt("輸入新名字：", S.name); if(n===null) return; const t=n.trim(); if(!t) return; S.name=t; save(); render(); const md=document.getElementById("settingsModal"); if(md) md.remove(); toast("改名成功："+t); }
 
 function lock(){ document.querySelectorAll(".opt").forEach(o=>o.onclick=null); }
