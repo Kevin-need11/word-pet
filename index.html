@@ -443,6 +443,7 @@ const EGG_COST = 30;                   // 買一顆蛋（多養一隻）
 // 場景主題（換花色要花錢；買過可自由切換）
 const THEMES = [
   {id:"meadow", name:"草原",  cost:0,  bg:"linear-gradient(180deg,#aedcff 0%,#d3efff 46%,#bff0c8 62%,#a6e39a 100%)"},
+  {id:"kitchen", name:"🍲森林廚房", cost:0, bg:"linear-gradient(180deg,#cfe8d0 0%,#d8ecc8 46%,#e6e0c2 64%,#dcd3ad 100%)", img:"assets/scenes/kitchen.png"},
   {id:"beach",  name:"海邊",  cost:40, bg:"linear-gradient(180deg,#8fd8ff 0%,#bfeeff 50%,#ffe9b0 66%,#ffd98a 100%)"},
   {id:"sakura", name:"櫻花",  cost:50, bg:"linear-gradient(180deg,#ffd9ec 0%,#ffe9f4 48%,#d8f0c0 66%,#bfe6a0 100%)"},
   {id:"night",  name:"星空",  cost:60, bg:"linear-gradient(180deg,#2b3a6b 0%,#3f4f8c 45%,#5a6b9c 62%,#4a6b52 100%)"},
@@ -563,9 +564,11 @@ function migrate(s){
   if(!Array.isArray(s.gear)) s.gear = [];          // 擁有的闖關道具
   if(typeof s.level!=="number") s.level = -1;       // 已通關到第幾關（-1=只開放第0關）
   if(typeof s.bgm!=="boolean") s.bgm = true;
-  if(typeof s.theme!=="string") s.theme = "meadow";
-  if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow"];
-  if(!s.themes.includes(s.theme)) s.theme = "meadow";
+  if(typeof s.theme!=="string") s.theme = "kitchen";
+  if(!Array.isArray(s.themes) || !s.themes.length) s.themes = ["meadow","kitchen"];
+  if(!s.themes.includes("kitchen")) s.themes.push("kitchen");   // 森林廚房免費、所有人都有
+  if(s.theme==="meadow") s.theme = "kitchen";                   // 舊預設草原→升級成廚房主場景
+  if(!s.themes.includes(s.theme)) s.theme = "kitchen";
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
   if(!Array.isArray(s.pets) || !s.pets.length){
     const p = newPet("dragon");
