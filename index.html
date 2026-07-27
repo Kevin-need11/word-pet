@@ -71,6 +71,9 @@
   @keyframes sffall{0%{top:-8%;transform:translateX(0);}50%{transform:translateX(16px);}100%{top:112%;transform:translateX(-10px);}}
   .lf{position:absolute;top:-8%;width:15px;height:9px;border-radius:60% 60% 40% 40%/70% 70% 40% 40%;background:linear-gradient(135deg,#a6d178,#6fae4a);opacity:.8;pointer-events:none;animation:lffly linear infinite;}
   @keyframes lffly{from{top:-8%;transform:translateX(0) rotate(0);}to{top:102%;transform:translateX(140px) rotate(260deg);}}
+  .potbtn{position:absolute;left:50%;top:11%;transform:translateX(-50%);z-index:7;background:rgba(255,250,240,.92);border:2px solid #e0a24a;color:#a05a1a;font-weight:900;font-size:13px;padding:6px 14px;border-radius:999px;box-shadow:0 3px 10px rgba(180,120,40,.35);cursor:pointer;animation:pigbob 1.6s ease-in-out infinite;}
+  .steam{position:absolute;left:50%;top:8%;transform:translateX(-50%);z-index:6;font-size:26px;pointer-events:none;animation:steamup 1.4s ease-out forwards;}
+  @keyframes steamup{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(.7);}30%{opacity:.9;}100%{opacity:0;transform:translateX(-50%) translateY(-30px) scale(1.2);}}
   /* 多寵物在場景裡走動 */
   .pets{position:absolute;inset:0;z-index:2;pointer-events:none;}
   .petsprite{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;transition:filter .2s;pointer-events:auto;}
@@ -283,6 +286,7 @@
       <img class="scenebg" id="sceneBg" alt="" onerror="this.dataset.failed=this.getAttribute('src'); this.style.display='none'">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="skytint" id="skytint"></div><div class="wx" id="wx"></div>
+      <button class="potbtn hidden" id="potBtn" onclick="openSoup()">🍲 煮湯</button>
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
@@ -573,6 +577,8 @@ function migrate(s){
   if(!s.themes.includes("kitchen")) s.themes.push("kitchen");   // 森林廚房免費、所有人都有
   if(s.theme==="meadow") s.theme = "kitchen";                   // 舊預設草原→升級成廚房主場景
   if(!s.themes.includes(s.theme)) s.theme = "kitchen";
+  if(typeof s.soupLv!=="number") s.soupLv = 1;      // 🍲 湯站等級
+  if(typeof s.soupXp!=="number") s.soupXp = 0;
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
   if(!Array.isArray(s.pets) || !s.pets.length){
     const p = newPet("dragon");
@@ -669,6 +675,7 @@ function render(){
   if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
     if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
   renderPets(); renderDecor(); renderAway();
+  var _pb=document.getElementById("potBtn"); if(_pb) _pb.classList.toggle("hidden", S.theme!=="kitchen" || editMode);
 }
 function piggyAvail(){ if(!S.piggy) return 0; return Math.min(PIGGY_CAP, Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
 function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
@@ -1337,6 +1344,76 @@ function releasePet(i){
   S.coins+=5; save(); render();
   const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection();
   toast(nm+" 開心地回到森林了，掰掰～👋 🪙+5");
+}
+/* ===== 🍲 湯站：點食材煮湯學英文、升級解鎖新湯、寶貝料理專長 ===== */
+const ING={carrot:"紅蘿蔔",potato:"馬鈴薯",onion:"洋蔥",corn:"玉米",tomato:"番茄",mushroom:"蘑菇",cabbage:"高麗菜",broccoli:"花椰菜",pumpkin:"南瓜",egg:"蛋",fish:"魚",shrimp:"蝦子",crab:"螃蟹",milk:"牛奶",cheese:"起司",butter:"奶油"};
+const RECIPES=[
+  {id:"veg",name:"蔬菜湯",en:"Vegetable Soup",ing:["carrot","potato","onion"],lv:1,coin:8},
+  {id:"corn",name:"玉米濃湯",en:"Corn Soup",ing:["corn","milk","butter"],lv:2,coin:12},
+  {id:"sea",name:"海鮮湯",en:"Seafood Soup",ing:["fish","shrimp","crab"],lv:3,coin:16},
+  {id:"tomato",name:"番茄湯",en:"Tomato Soup",ing:["tomato","onion","cheese"],lv:4,coin:20},
+  {id:"mush",name:"蘑菇湯",en:"Mushroom Soup",ing:["mushroom","cabbage","broccoli"],lv:5,coin:24},
+  {id:"pump",name:"南瓜濃湯",en:"Pumpkin Soup",ing:["pumpkin","egg","milk"],lv:6,coin:28}
+];
+const PET_SOUP={fox:"corn",cat:"corn",turtle:"sea",bunny:"veg",rock:"mush",light:"pump"};
+function soupLv(){ return S.soupLv||1; }
+function cookImg(id){ return "assets/food/ing_"+id+".png"; }
+function openSoup(){
+  const m=document.createElement("div"); m.className="modal"; m.id="soupModal"; const lv=soupLv();
+  const rows=RECIPES.map(r=>{
+    const unlocked=r.lv<=lv, fav=PET_SOUP[P().species]===r.id;
+    const icons=r.ing.map(i=>`<img src="${cookImg(i)}" style="width:34px;height:34px;object-fit:contain" onerror="this.style.display='none'">`).join("");
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px;margin-bottom:8px;background:${unlocked?'#fff6e6':'#eeeeee'};${unlocked?'':'opacity:.6'}">
+      <div style="flex:1;text-align:left;min-width:0">
+        <div style="font-weight:900">${r.name} <span style="font-size:12px;color:#8a7a5a">${r.en}</span> ${fav?'<span style=color:#e0913a>· 🐱擅長</span>':''}</div>
+        <div style="margin-top:3px">${icons}</div></div>
+      ${unlocked?`<button class="linkbtn" style="color:#fff;background:#e0a24a;border-radius:12px;width:auto;padding:8px 14px;margin:0;white-space:nowrap" onclick="cookStart('${r.id}')">煮 🍲</button>`:`<div style="font-size:12px;color:#999;white-space:nowrap">Lv.${r.lv} 解鎖</div>`}
+    </div>`;
+  }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🍲 湯站（Lv.${lv}）</h2>
+    <div class="hint">照英文提示、依序點對食材煮湯——煮越多湯站升級、解鎖新湯！用對擅長的寶貝有加成。</div>
+    <div style="max-height:52vh;overflow:auto;margin:8px 0">${rows}</div>
+    <button class="btn" onclick="document.getElementById('soupModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+let cookState=null;
+function cookStart(rid){ const r=RECIPES.find(x=>x.id===rid); if(!r) return; const sm=document.getElementById("soupModal"); if(sm) sm.remove(); cookState={r,step:0}; cookRender(); }
+function cookRender(){
+  const {r,step}=cookState; let m=document.getElementById("cookModal"); const first=!m;
+  if(first){ m=document.createElement("div"); m.className="modal"; m.id="cookModal"; }
+  const target=r.ing[step];
+  const others=Object.keys(ING).filter(i=>!r.ing.includes(i)); shuffle(others);
+  const opts=shuffle([target,others[0],others[1]]);
+  const done=r.ing.slice(0,step).map(i=>`<img src="${cookImg(i)}" style="width:30px;height:30px;object-fit:contain">`).join("");
+  m.innerHTML=`<div class="sheet"><h2>🍲 煮 ${r.name}</h2>
+    <div class="hint">加入第 ${step+1}/${r.ing.length} 種食材：找出下面這個、點它！</div>
+    <div style="margin:6px 0;font-size:15px">已加入：${done||'（還沒）'}</div>
+    <div class="zh" style="font-size:20px">${ING[target]}</div>
+    <div style="font-size:24px;font-weight:900;color:#3a5a7a">${target}</div>
+    <button class="speak" onclick="speak('${target}')">🔊 唸唸看</button>
+    <div style="display:flex;gap:12px;justify-content:center;margin:12px 0;flex-wrap:wrap">
+      ${opts.map(i=>`<button class="cookopt" onclick="cookTap('${i}')" style="background:#fff6e6;border:2px solid #e6c98a;border-radius:16px;padding:8px;cursor:pointer"><img src="${cookImg(i)}" style="width:64px;height:64px;object-fit:contain" onerror="this.parentNode.textContent='${ING[i]}'"></button>`).join("")}
+    </div>
+    <button class="linkbtn" onclick="document.getElementById('cookModal').remove()">取消</button></div>`;
+  if(first) document.body.appendChild(m);
+  setTimeout(()=>speak(target),250);
+}
+function cookTap(id){
+  const {r,step}=cookState; const target=r.ing[step];
+  if(id!==target){ toast("再看看～這是「"+ING[target]+" "+target+"」"); speak(target); return; }
+  markLearned(target); speak(target); cookState.step++;
+  if(cookState.step>=r.ing.length) cookDone(r); else cookRender();
+}
+function cookDone(r){
+  const m=document.getElementById("cookModal"); if(m) m.remove();
+  const fav=PET_SOUP[P().species]===r.id; const coin=fav?Math.round(r.coin*1.5):r.coin;
+  S.coins+=coin; S.food+=2; gainCard(r.ing[Math.floor(Math.random()*r.ing.length)],0);
+  S.soupXp=(S.soupXp||0)+1; const need=soupLv()*3; let leveled=false;
+  if(S.soupXp>=need && soupLv()<RECIPES.length){ S.soupLv=soupLv()+1; S.soupXp=0; leveled=true; }
+  save(); render();
+  const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
+  toast(r.name+" 完成！🪙+"+coin+" 🍎+2"+(fav?"（🐱擅長加成！）":""));
+  if(leveled) setTimeout(()=>toast("🍲 湯站升級到 Lv."+soupLv()+"！解鎖新湯"),1200);
 }
 function openSettings(){
   const m=document.createElement("div"); m.className="modal"; m.id="settingsModal";
