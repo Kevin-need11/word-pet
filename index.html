@@ -69,6 +69,11 @@
   /* 居家自主行動 */
   .chore{position:absolute;top:-34px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(255,255,255,.92);border-radius:999px;padding:3px 11px;font-size:14px;font-weight:900;color:#6b4a1a;box-shadow:0 2px 7px rgba(0,0,0,.14);z-index:4;animation:chorein .35s ease;}
   @keyframes chorein{from{opacity:0;transform:translateX(-50%) translateY(6px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+  /* 生活場景：寵物走動(left/top 過渡)、面向翻轉、手上道具做動作 */
+  .petsprite.walk{transition:left 3s ease-in-out, top 3s ease-in-out, filter .2s;}
+  .petsprite.flip .pi img{transform:scaleX(-1);}
+  .choreact{position:absolute;top:-14px;right:-8px;font-size:26px;line-height:1;animation:choreuse 1s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28));pointer-events:none;z-index:5;}
+  @keyframes choreuse{0%,100%{transform:translateY(0) rotate(-12deg);}50%{transform:translateY(-7px) rotate(12deg);}}
   .coinfloat{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-size:20px;font-weight:900;color:#d9860a;z-index:5;pointer-events:none;animation:coinup 1s ease forwards;}
   @keyframes coinup{from{opacity:0;transform:translate(-50%,10px);}30%{opacity:1;}to{opacity:0;transform:translate(-50%,-42px);}}
   .awaytag .atimer{background:rgba(43,107,214,.92);color:#fff;font-size:12px;font-weight:900;padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums;}
@@ -251,6 +256,7 @@
       <div class="coin">🪙 <span id="coins">0</span></div>
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
       <button class="gear" onclick="openDex()">📖</button>
+      <button class="gear" onclick="openCollection()">🐾</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -376,11 +382,31 @@
 <script src="data/vocab.js"></script>
 <script>
 const STAGES = [
-  {min:1,  emoji:"🥚",   name:"蛋",     img:"assets/pets/egg.png"},
-  {min:3,  emoji:"🦎",   name:"小龍寶寶", img:"assets/pets/baby.png"},
-  {min:10, emoji:"🐲",   name:"小龍",    img:"assets/pets/teen.png"},
-  {min:25, emoji:"✨🐉", name:"進化龍",  img:"assets/pets/final.png"}
+  {min:1,  emoji:"🥚", name:"蛋",     key:"egg",   img:"assets/pets/egg.png"},
+  {min:3,  emoji:"🐣", name:"幼年",   key:"baby",  img:"assets/pets/baby.png"},
+  {min:10, emoji:"🐥", name:"青年",   key:"teen",  img:"assets/pets/teen.png"},
+  {min:25, emoji:"✨", name:"成熟期", key:"final", img:"assets/pets/final.png"}
 ];
+// 6 隻寶貝物種：孵蛋隨機開出一隻，各有幼年/青年/成熟期專屬圖（蛋共用一顆）
+const SPECIES = {
+  fox:    {name:"小火狐", emoji:"🦊", pre:"pet1"},
+  bunny:  {name:"小葉兔", emoji:"🐰", pre:"pet2"},
+  turtle: {name:"小水龜", emoji:"🐢", pre:"pet3"},
+  cat:    {name:"電貓",   emoji:"⚡", pre:"pet4"},
+  rock:   {name:"岩獸",   emoji:"🪨", pre:"pet5"},
+  light:  {name:"光靈",   emoji:"✨", pre:"pet6"}
+};
+const SPECIES_KEYS = Object.keys(SPECIES);
+function randSpecies(){ return SPECIES_KEYS[Math.floor(Math.random()*SPECIES_KEYS.length)]; }
+function speciesName(sp){ return (SPECIES[sp]||{}).name || "神秘寶貝"; }
+function speciesEmoji(sp){ return (SPECIES[sp]||{}).emoji || "🥚"; }
+// 依物種+階段給圖；蛋共用；未知物種(舊dragon存檔)退回共用圖
+function stageImg(species, st){
+  if(!st || st.key==="egg") return "assets/pets/egg.png";
+  const sp = SPECIES[species];
+  if(!sp) return st.img || ("assets/pets/"+st.key+".png");
+  return "assets/pets/"+sp.pre+"_"+st.key+".png";
+}
 const XP_PER_LV = 50, XP_PER_FEED = 5, DAILY_GOAL = 10;
 const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
 const MASTER_N = 3;                    // 一個字答對幾次算「學會」（圖鑑點亮）
@@ -486,7 +512,7 @@ function save(){ localStorage.setItem("petSave", JSON.stringify(S)); CloudSave.p
 function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function now(){ return Date.now(); }
 
-function newPet(species){ return {id:"p"+now()+Math.floor(Math.random()*1000), species:species||"dragon", xp:0, care:{hunger:100,mood:100,clean:100,ts:now()}, away:null, specialty: JOBS[Math.floor(Math.random()*JOBS.length)].id}; }
+function newPet(species){ return {id:"p"+now()+Math.floor(Math.random()*1000), species:species||randSpecies(), xp:0, care:{hunger:100,mood:100,clean:100,ts:now()}, away:null, specialty: JOBS[Math.floor(Math.random()*JOBS.length)].id}; }
 function P(){ return S.pets[S.active]; }
 
 /* 舊存檔自動升級：任何缺的欄位補預設，不刪既有進度。改版不必清資料。 */
@@ -551,6 +577,7 @@ function enterGame(){
   document.getElementById("petbar").style.display = "none";   // 改用「寵物在場景裡」，不用切換頁籤
   decayCare(); render();
   if(tick) clearInterval(tick); tick = setInterval(onTick, 1000);
+  if(walkTimer) clearInterval(walkTimer); walkTimer = setInterval(walkStep, 3400); setTimeout(walkStep, 700);
   if(S.bgm !== false) startBGM();
 }
 
@@ -585,7 +612,7 @@ function render(){
   document.getElementById("stageName").textContent = st.name;
   document.getElementById("petOwner").textContent = S.name + " 的寵物";
   const spec = JOBS.find(j=>j.id===p.specialty);
-  document.getElementById("petName").textContent = st.name + (spec? "　擅長 "+spec.ic+spec.name : "");
+  document.getElementById("petName").textContent = (st.key!=="egg"? speciesName(p.species)+"·" : "") + st.name + (spec? "　擅長 "+spec.ic+spec.name : "");
   document.getElementById("xpbar").style.width = ((p.xp % XP_PER_LV)/XP_PER_LV*100)+"%";
   document.getElementById("feedBtn").disabled = S.food < 1 || !!p.away;
   // 場景主題（含插畫背景圖，圖載入失敗自動退回漸層）
@@ -619,23 +646,52 @@ function curChore(){ return CHORES[chore.idx%CHORES.length]; }
 function homeActive(){ const p=P(); return p && !p.away && !editMode; }
 function rotateChore(){ let n; do{ n=Math.floor(Math.random()*CHORES.length); }while(CHORES.length>1 && n===chore.idx); chore.idx=n; chore.until=now()+(11000+Math.random()*9000); }
 function coinPop(n){ const box=document.getElementById("pets"); if(!box) return; const f=document.createElement("div"); f.className="coinfloat"; f.textContent="🪙+"+n; box.appendChild(f); setTimeout(()=>{ if(f.parentNode) f.parentNode.removeChild(f); },1000); }
-const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:44},{x:63,y:46},{x:20,y:46},{x:80,y:46},{x:50,y:72}];
+const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:48},{x:63,y:50},{x:22,y:50},{x:78,y:52},{x:50,y:66}];
+let petPos=[], petChore=[], walkTimer=null;
+const WALK_X=[18,82], WALK_Y=[44,72];   // 走動範圍(留邊避免超出場景)
+function ensurePetState(){
+  S.pets.forEach((p,i)=>{
+    if(!petPos[i]){ const s=PET_SLOTS[i%PET_SLOTS.length]; petPos[i]={x:s.x,y:s.y,fx:false}; }
+    if(petChore[i]==null) petChore[i]=Math.floor(Math.random()*CHORES.length);
+  });
+}
 function renderPets(){
   const box = document.getElementById("pets"); box.innerHTML="";
+  ensurePetState();
   S.pets.forEach((p,i)=>{
     const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv), active=i===S.active;
-    const x = active?50:PET_SLOTS[i%PET_SLOTS.length].x, y = active?60:PET_SLOTS[i%PET_SLOTS.length].y;
-    const px = active?150:92, dur = (2.4+(i%5)*0.4).toFixed(1);
-    const el=document.createElement("div"); el.className="petsprite"+(active?" active":"")+(p.away?" away":"");
-    el.style.left=x+"%"; el.style.top=y+"%";
+    const pos=petPos[i], px = active?112:76, dur = (2.4+(i%5)*0.4).toFixed(1);
+    const el=document.createElement("div"); el.id="ps-"+i;
+    el.className="petsprite walk"+(active?" active":"")+(p.away?" away":"")+(pos.fx?" flip":"");
+    el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
     let tag = "";
     if(p.away){ tag = `<div class="awaytag"><span class="atimer" id="atimer-${i}"></span><button class="aclaim hidden" id="aclaim-${i}" onclick="event.stopPropagation();claimAway(${i})">🎁 領取</button></div>`; }
-    else if(active && !editMode){ tag = `<div class="chore">${curChore().ic} ${curChore().t}…</div>`; }
-    el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?96:56}px;"><img src="${st.img}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.emoji}'"></div><div class="psh" style="width:${active?96:56}px"></div>${tag}`;
+    else if(!editMode){ const ch=CHORES[petChore[i]]; tag = `<div class="choreact">${ch.ic}</div>`+(active?`<div class="chore">${ch.t}…</div>`:""); }
+    el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?92:54}px;"><img src="${stageImg(p.species, st)}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.key==='egg'?st.emoji:speciesEmoji(p.species)}'"></div><div class="psh" style="width:${active?92:54}px"></div>${tag}`;
     el.onclick=()=>{ if(!active) setActive(i); };
     box.appendChild(el);
   });
   refreshAway();
+}
+/* 生活場景移動：每隔幾秒每隻走到新定點(CSS 過渡=走路)、面向翻轉、換一個家事動作。直接動現有元素、不重建，才不會被 render 打斷。 */
+function walkStep(){
+  if(editMode) return;
+  const box=document.getElementById("pets"); if(!box) return;
+  ensurePetState();
+  S.pets.forEach((p,i)=>{
+    if(p.away) return;
+    const el=document.getElementById("ps-"+i); if(!el) return;
+    const nx=WALK_X[0]+Math.random()*(WALK_X[1]-WALK_X[0]);
+    const ny=WALK_Y[0]+Math.random()*(WALK_Y[1]-WALK_Y[0]);
+    const flip = nx < petPos[i].x;
+    petPos[i]={x:+nx.toFixed(1), y:+ny.toFixed(1), fx:flip};
+    el.style.left=petPos[i].x+"%"; el.style.top=petPos[i].y+"%";
+    el.classList.toggle("flip",flip);
+    petChore[i]=Math.floor(Math.random()*CHORES.length);
+    const ca=el.querySelector(".choreact"); if(ca) ca.textContent=CHORES[petChore[i]].ic;
+    const cb=el.querySelector(".chore"); if(cb) cb.textContent=CHORES[petChore[i]].t+"…";
+  });
+  if(homeActive() && piggyAvail()>0) coinPop(1);
 }
 /* 每隻外出寵物在自己頭上顯示倒數/領取，不擋其他寵物 */
 function refreshAway(){
@@ -686,7 +742,7 @@ function fmt(ms){ const s=Math.max(0,Math.ceil(ms/1000)); const h=Math.floor(s/3
 
 function onTick(){ decayCare(); refreshAway();
   // 🏡 居家自主行動：在家時每 ~11-20 秒換一個家事動作，正在存錢就冒個 🪙 讓你看到牠有在賺
-  if(homeActive() && now()>=chore.until){ rotateChore(); if(piggyAvail()>0) coinPop(1); renderPets(); }
+  // 家事動作＋走動改由 walkStep 處理(直接動元素、不重建)；這裡不再 renderPets 以免打斷走路過渡
   // 🐦 訪客：在家時偶爾有小動物來訪（無訪客時每秒約 0.35% 機率）
   if(homeActive() && !S.visitor && Math.random()<0.0035){ spawnVisitor(); }
   // 每分鐘刷新一次整體顯示（care/piggy）
@@ -907,10 +963,10 @@ function buyFood(p){
 }
 function buyEgg(){
   if(S.coins < EGG_COST){ toast("金幣不夠買蛋（需 🪙"+EGG_COST+"）"); return; }
-  S.coins -= EGG_COST; S.pets.push(newPet("dragon")); S.active = S.pets.length-1; save();
+  S.coins -= EGG_COST; S.pets.push(newPet()); S.active = S.pets.length-1; save();
   document.getElementById("shopCoins").textContent = S.coins;
   closeSheet("shopWrap"); render();
-  toast("買了一顆蛋 🥚 開始養新寵物！");
+  toast("買了一顆神秘蛋 🥚 養大看看孵出哪隻寶貝！");
 }
 function buyItem(item){
   if(S.home.some(h=>h.id===item.id)) return;
@@ -1139,6 +1195,45 @@ function feed(){ if(guardAway())return; if(S.food<1){ toast("沒食物了，去�
   const av=document.getElementById("activeSprite"); if(av){ av.style.transition="transform .15s"; av.style.transform="scale(1.18)"; setTimeout(()=>av.style.transform="",300); }
   if(before!==after) toast("進化！變成「"+after+"」🎉"); else toast("牠吃得好開心 😋"); }
 
+/* 🐾 收藏頁：看所有寶貝、切換主寵、放生 */
+function openCollection(){
+  const m=document.createElement("div"); m.className="modal"; m.id="collectionModal";
+  const rows = S.pets.map((p,i)=>{
+    const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv), active=i===S.active;
+    const img=stageImg(p.species, st), nm=speciesName(p.species);
+    const spec=JOBS.find(j=>j.id===p.specialty);
+    const head = st.key==='egg' ? '🥚 神秘蛋（快孵化了）' : (speciesEmoji(p.species)+' '+nm);
+    const fall = st.key==='egg' ? '🥚' : speciesEmoji(p.species);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;margin-bottom:8px;background:${active?'#ffe9c6':'#faf6ee'}">
+      <img src="${img}" onerror="this.replaceWith(document.createTextNode('${fall}'))" style="width:54px;height:54px;object-fit:contain;flex:0 0 54px">
+      <div style="flex:1;text-align:left;min-width:0">
+        <div style="font-weight:900;font-size:15px">${head} ${active?'<span style=\'color:#e0913a\'>· 主寵</span>':''}</div>
+        <div style="font-size:12px;color:#7a6a52">${st.name} · Lv.${lv}${spec?(' · 擅長'+spec.ic+spec.name):''}</div>
+      </div>
+      ${active?'':`<button class="linkbtn" style="color:#4a63d6;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="pickActive(${i})">設為主寵</button>`}
+      <button class="linkbtn" style="color:#c0563a;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="releasePet(${i})">🕊️ 放生</button>
+    </div>`;
+  }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🐾 我的寶貝（${S.pets.length}）</h2>
+    <div class="hint">點「設為主寵」切換照顧對象；不喜歡的可以「放生」讓牠回大自然（至少留 1 隻）。</div>
+    <div style="max-height:52vh;overflow:auto;margin:10px 0">${rows}</div>
+    <button class="btn" onclick="document.getElementById('collectionModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m);
+  m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+function pickActive(i){ setActive(i); const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection(); toast("換 "+speciesName(P().species)+" 當主寵 💛"); }
+function releasePet(i){
+  if(S.pets.length<=1){ toast("至少要留 1 隻寶貝喔 🥺"); return; }
+  const p=S.pets[i], st=stageFor(Math.floor(p.xp/XP_PER_LV)+1);
+  const nm=(st.key==='egg')?'這顆蛋':speciesName(p.species);
+  if(!confirm("確定讓 "+nm+" 回到大自然嗎？🌳\n（放生後就不能反悔囉）")) return;
+  S.pets.splice(i,1);
+  if(S.active>=S.pets.length) S.active=S.pets.length-1;
+  else if(i<S.active) S.active--;
+  S.coins+=5; save(); render();
+  const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection();
+  toast(nm+" 開心地回到森林了，掰掰～👋 🪙+5");
+}
 function openSettings(){
   const m=document.createElement("div"); m.className="modal"; m.id="settingsModal";
   m.innerHTML=`<div class="sheet"><h2>⚙️ 家長後台</h2><div class="hint">勾選目前要出現的單字年級（可複選）</div>
