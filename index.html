@@ -500,25 +500,28 @@ function cloudLogin(){
   CloudSave.login(nm,pn,function(res){
     if(!res.ok){ toast(res.msg==='wrong_pin'?"密碼不對，再試一次":"登入失敗，網路再試"); return; }
     CloudSave.load(function(data){
-      var local = localStorage.getItem("petSave");
-      if(local && local!=="null"){
-        // ★這台已有進度：保留本機、把本機可靠推上雲(sendBeacon,絕不被雲端舊檔蓋掉)
-        CloudSave.pushNow(local);
-        toast("已同步存檔，載入最新版…☁️");
-      } else if(data){
-        // 新裝置、這台沒進度：才把雲端存檔接回來
-        try{ localStorage.setItem("petSave", data); }catch(e){}
-        toast("已從雲端接回存檔，載入中…☁️");
-      } else {
-        toast("登入成功，載入最新版…☁️");
-      }
-      // 延遲讓 sendBeacon 送出,再 cache-busting 載最新版(存檔在 localStorage 保留)
-      setTimeout(function(){ location.href = location.pathname + "?r=" + Date.now(); }, 500);
+      // ★新的贏:比對本機 vs 雲端,用較新那份;本機較新就推上雲。永不倒退遺失
+      var localStr = localStorage.getItem("petSave");
+      var best = pickNewerSave(localStr, data);
+      if(best){ try{ localStorage.setItem("petSave", best); }catch(e){} }
+      if(best===localStr && localStr) CloudSave.pushNow(localStr);
+      toast("登入成功，同步中…☁️");
+      setTimeout(function(){ location.href = location.pathname + "?r=" + Date.now(); }, 600);
     });
   });
 }
 function load(){ try{ const raw=JSON.parse(localStorage.getItem("petSave")); return raw? migrate(raw): null; }catch(e){ return null; } }
-function save(){ localStorage.setItem("petSave", JSON.stringify(S)); CloudSave.push(localStorage.getItem("petSave")); }
+function save(){ if(S) S.savedAt = now(); localStorage.setItem("petSave", JSON.stringify(S)); CloudSave.push(localStorage.getItem("petSave")); }
+/* 比對本機 vs 雲端存檔,回傳「比較新(savedAt 較大)」的那份字串;缺 savedAt 當 0。雲端嚴格較新才用雲端,否則用本機=永不倒退 */
+function pickNewerSave(localStr, cloudStr){
+  var lo=null, cl=null;
+  try{ lo = localStr? JSON.parse(localStr): null; }catch(e){}
+  try{ cl = cloudStr? JSON.parse(cloudStr): null; }catch(e){}
+  var lt=(lo&&lo.savedAt)||0, ct=(cl&&cl.savedAt)||0;
+  if(cl && ct>lt) return cloudStr;
+  if(lo) return localStr;
+  return cloudStr||localStr||null;
+}
 function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
 function now(){ return Date.now(); }
 
@@ -1321,7 +1324,27 @@ function toggleBGM(){ if(bgmOn){ if(S) S.bgm=false; save(); stopBGM(); } else { 
 document.addEventListener("pointerdown", ()=>{ if(S && S.bgm!==false && !bgmOn) startBGM(); });
 
 // 已有存檔 → 自動進遊戲，不必每次輸入名字（第一次玩才顯示登入畫面）
-if(S){ enterGame(); }
+/* 網路遊戲式啟動：有本機存檔先進場(不閃爍);若已登入帳號→自動讀雲端最新紀錄,雲端較新(在別台玩過)就套用、否則把本機推上雲 */
+function bootstrap(){
+  if(S){ enterGame(); }
+  var acct = CloudSave.account();
+  if(acct){
+    CloudSave.load(function(cloudStr){
+      var localStr = localStorage.getItem("petSave");
+      var best = pickNewerSave(localStr, cloudStr);
+      if(best && best!==localStr){
+        try{ localStorage.setItem("petSave", best); }catch(e){}
+        S = migrate(JSON.parse(best));
+        if(document.getElementById("home").classList.contains("hidden")){ enterGame(); }
+        else { decayCare(); render(); toast("已讀取雲端最新紀錄 ☁️"); }
+      } else {
+        if(localStr) CloudSave.pushNow(localStr);
+        if(!S && best){ try{ localStorage.setItem("petSave", best); }catch(e){} S=migrate(JSON.parse(best)); enterGame(); }
+      }
+    });
+  }
+}
+bootstrap();
 </script>
 </body>
 </html>
