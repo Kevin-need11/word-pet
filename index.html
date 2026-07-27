@@ -1251,9 +1251,11 @@ function openSettings(){
     <div class="grades" id="gradeChk"></div>
     <div class="stat">玩家：<b>${S.name}</b><br>累計答對：<b>${S.correct}</b> 題 · 今日：<b>${Math.min(S.daily.n,DAILY_GOAL)}/${DAILY_GOAL}</b><br>
       等級：<b>Lv.${levelOf()}</b>（${stageFor(levelOf()).name}） · 金幣：<b>🪙${S.coins}</b><br>
-      收集明信片：<b>${S.cards.length}</b> 張 · 題庫：<b id="poolCount">-</b> 字</div>
+      收集明信片：<b>${S.cards.length}</b> 張 · 題庫：<b id="poolCount">-</b> 字<br>
+      ☁️ 雲端：<b>${CloudSave.account()? ('已連（'+CloudSave.displayName()+'）') : '未連結（點下方登入）'}</b></div>
     <button class="btn" onclick="saveSettings()">儲存並繼續</button>
-    <button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="cloudLogin()">☁️ 雲端存檔（換手機不丟）</button>
+    <button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="cloudLogin()">☁️ 雲端帳號（登入／換手機不丟）</button>
+    <button class="linkbtn" style="color:#2a9d8f" onclick="backupToCloud()">☁️ 立即備份並確認</button>
     <button class="linkbtn" style="color:#4a63d6" onclick="renameUser()">✏️ 改名字</button>
     <button class="linkbtn" style="color:#e0913a;font-weight:900" onclick="reloadLatest()">🔄 重新整理（載入最新版）</button>
     <button class="linkbtn" onclick="resetAll()">重設全部進度</button></div>`;
@@ -1269,6 +1271,22 @@ function saveSettings(){ let gs=chosenGrades(); if(!gs.length) gs=[1]; S.grades=
 function resetAll(){ if(!confirm("確定要清空這台裝置上的進度嗎？")) return; localStorage.removeItem("petSave"); location.reload(); }
 /* 🔄 重新整理載入最新版：加時間戳參數繞過快取(書簽/全螢幕PWA沒有瀏覽器重整鈕時用);localStorage進度保留不受影響 */
 function reloadLatest(){ try{ toast("載入最新版中…🔄"); }catch(e){} location.href = location.pathname + "?r=" + Date.now(); }
+/* ☁️ 立即備份並確認：推上雲後從雲端讀回核對，給明確成功/失敗回饋，讓你確定存到雲端了 */
+function backupToCloud(){
+  if(!CloudSave.account()){ toast("要先用「☁️雲端帳號」登入，才能存到雲端"); return; }
+  var local = localStorage.getItem("petSave");
+  if(!local){ toast("這台還沒有存檔"); return; }
+  toast("備份到雲端中…☁️");
+  CloudSave.pushNow(local);
+  setTimeout(function(){
+    CloudSave.load(function(data){
+      if(data && data===local){
+        var t=new Date(); toast("✅ 已備份到雲端 "+("0"+t.getHours()).slice(-2)+":"+("0"+t.getMinutes()).slice(-2));
+      } else if(data){ toast("☁️ 雲端已有存檔（若剛動作可能還在同步，稍候再按一次確認）"); }
+      else { toast("⚠️ 雲端還沒收到，檢查網路後再按一次"); }
+    });
+  }, 1800);
+}
 function renameUser(){ const n=prompt("輸入新名字：", S.name); if(n===null) return; const t=n.trim(); if(!t) return; S.name=t; save(); render(); const md=document.getElementById("settingsModal"); if(md) md.remove(); toast("改名成功："+t); }
 
 function lock(){ document.querySelectorAll(".opt").forEach(o=>o.onclick=null); }
