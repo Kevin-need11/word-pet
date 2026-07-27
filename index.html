@@ -731,6 +731,19 @@ function walkStep(){
     const ca=el.querySelector(".choreact"); if(ca) ca.textContent=CHORES[petChore[i]].ic;
     const cb=el.querySelector(".chore"); if(cb) cb.textContent=CHORES[petChore[i]].t+"…";
   });
+  // 🍲 偶爾派一隻寶貝到湯鍋邊工作(走過去煮湯、冒煙)
+  if(S.theme==="kitchen" && !editMode && Math.random()<0.32){
+    const idxs=S.pets.map((p,i)=>i).filter(i=>!S.pets[i].away);
+    if(idxs.length){ const i=idxs[Math.floor(Math.random()*idxs.length)]; const el=document.getElementById("ps-"+i);
+      if(el){ petPos[i]={x:44+Math.random()*12, y:30+Math.random()*6, fx:Math.random()<0.5};
+        el.style.left=petPos[i].x+"%"; el.style.top=petPos[i].y+"%"; el.classList.toggle("flip",petPos[i].fx);
+        petChore[i]=1;   // 煮湯中🍲
+        const ca=el.querySelector(".choreact"); if(ca) ca.textContent=CHORES[1].ic;
+        const cb=el.querySelector(".chore"); if(cb) cb.textContent=CHORES[1].t+"…";
+        const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; st.style.top="25%"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
+      }
+    }
+  }
   if(homeActive() && piggyAvail()>0) coinPop(1);
 }
 /* 🌤️ 日夜＋天氣系統(純CSS/JS,不用美術)：依真實時間變天色、隨機換天氣(晴/多雲/雨/雪)＋順便學天氣英文 */
@@ -1477,26 +1490,29 @@ function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ===== 背景音樂：瀏覽器內建生成的柔和五聲音階（免音檔）。Kevin 可之後給真 BGM 檔替換 ===== */
-let audioCtx=null, bgmTimer=null, bgmOn=false, bgmMaster=null;
+let audioCtx=null, bgmTimer=null, bgmOn=false, bgmMaster=null, bgmBass=null, bgmPad=null;
 const PENTA=[261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25]; // C D E G A C D E（五聲，永不刺耳）
 function startBGM(){
   if(bgmOn) return;
   try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
   if(audioCtx.state==="suspended") audioCtx.resume();
   bgmOn=true; const b=document.getElementById("bgmBtn"); if(b) b.textContent="🔊";
-  bgmMaster = audioCtx.createGain(); bgmMaster.gain.value=0.05; bgmMaster.connect(audioCtx.destination);
-  const playNote=()=>{
-    if(!bgmOn||!audioCtx) return;
-    const n=PENTA[Math.floor(Math.random()*PENTA.length)];
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.type="triangle"; o.frequency.value=n;
-    const t=audioCtx.currentTime;
-    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.5,t+0.06); g.gain.exponentialRampToValueAtTime(0.0008,t+1.7);
-    o.connect(g); g.connect(bgmMaster); o.start(t); o.stop(t+1.8);
-  };
-  playNote(); bgmTimer=setInterval(playNote, 950);
+  bgmMaster = audioCtx.createGain(); bgmMaster.gain.value=0.05;
+  const filt=audioCtx.createBiquadFilter(); filt.type="lowpass"; filt.frequency.value=2200; filt.Q.value=0.4;
+  bgmMaster.connect(filt); filt.connect(audioCtx.destination);
+  const BASS=[65.41,73.42,82.41,98.00]; // C2 D2 E2 G2 溫柔低音
+  function tone(freq,type,dur,peak,atk){ if(!bgmOn||!audioCtx) return;
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=type; o.frequency.value=freq;
+    const t=audioCtx.currentTime; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(peak,t+(atk||0.06)); g.gain.exponentialRampToValueAtTime(0.0008,t+dur);
+    o.connect(g); g.connect(bgmMaster); o.start(t); o.stop(t+dur+0.1); }
+  const playNote=()=>{ if(!bgmOn) return; const i=Math.floor(Math.random()*PENTA.length); tone(PENTA[i],"triangle",1.7,0.42);
+    if(Math.random()<0.35){ tone(PENTA[(i+2)%PENTA.length],"sine",1.6,0.16); } };   // 和聲
+  const playBass=()=>{ tone(BASS[Math.floor(Math.random()*BASS.length)],"sine",3.4,0.5,0.2); };            // 低音鋪底
+  const playPad=()=>{ const i=Math.floor(Math.random()*PENTA.length); tone(PENTA[i]/2,"sine",4.6,0.12,1.2); tone(PENTA[(i+2)%PENTA.length]/2,"sine",4.6,0.10,1.2); }; // 和聲鋪底
+  playNote(); playBass(); playPad();
+  bgmTimer=setInterval(playNote, 950); bgmBass=setInterval(playBass, 3800); bgmPad=setInterval(playPad, 9000);
 }
-function stopBGM(){ bgmOn=false; if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } const b=document.getElementById("bgmBtn"); if(b) b.textContent="🔇"; }
+function stopBGM(){ bgmOn=false; if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } if(bgmBass){ clearInterval(bgmBass); bgmBass=null; } if(bgmPad){ clearInterval(bgmPad); bgmPad=null; } const b=document.getElementById("bgmBtn"); if(b) b.textContent="🔇"; }
 function toggleBGM(){ if(bgmOn){ if(S) S.bgm=false; save(); stopBGM(); } else { if(S) S.bgm=true; save(); startBGM(); } }
 // 瀏覽器政策：音訊需使用者互動後才能播；第一次點擊時若設定開著就啟動
 document.addEventListener("pointerdown", ()=>{ if(S && S.bgm!==false && !bgmOn) startBGM(); });
