@@ -64,10 +64,13 @@
   .scene .stars{position:absolute;inset:0;z-index:1;pointer-events:none;}
   .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 4px #fff;animation:twinkle 2.6s ease-in-out infinite;}
   @keyframes twinkle{0%,100%{opacity:.25;}50%{opacity:1;}}
-  .rain{position:absolute;width:2px;height:16px;background:linear-gradient(#bcd8ff,rgba(188,216,255,0));border-radius:2px;animation:raindrop linear infinite;}
-  @keyframes raindrop{from{top:-10%;}to{top:110%;}}
-  .snow{position:absolute;color:#fff;font-size:13px;text-shadow:0 0 3px #cfe0ff;animation:snowfall linear infinite;}
-  @keyframes snowfall{from{top:-8%;transform:translateX(0);}to{top:108%;transform:translateX(20px) rotate(160deg);}}
+  .wxdrop{position:absolute;top:-10%;pointer-events:none;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15));}
+  .wxfall{animation:wxfall linear infinite;}
+  @keyframes wxfall{from{top:-10%;}to{top:112%;}}
+  .wxsnow{animation:wxsnow linear infinite;}
+  @keyframes wxsnow{0%{top:-8%;transform:translateX(0);}50%{transform:translateX(14px);}100%{top:110%;transform:translateX(-8px);}}
+  .wxwind{animation:wxwind linear infinite;}
+  @keyframes wxwind{from{top:-6%;transform:translateX(0) rotate(0);}to{top:100%;transform:translateX(120px) rotate(220deg);}}
   /* 多寵物在場景裡走動 */
   .pets{position:absolute;inset:0;z-index:2;pointer-events:none;}
   .petsprite{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;transition:filter .2s;pointer-events:auto;}
@@ -316,6 +319,7 @@
     <div class="lhead"><div class="ltitle">📚 學習賺食物</div><button class="close" onclick="closeSheet('learnWrap')">✕</button></div>
     <div class="daily"><span>📅 今日</span><div class="dbar"><i id="dailyBar"></i></div><span id="dailyTxt">0/10</span></div>
     <div class="tabs">
+      <button class="tab" data-mode="speak" onclick="setMode('speak')">🎤開口唸</button>
       <button class="tab on" data-mode="pick" onclick="setMode('pick')">認字</button>
       <button class="tab" data-mode="spell" onclick="setMode('spell')">拼字</button>
       <button class="tab" data-mode="listen" onclick="setMode('listen')">聽音</button>
@@ -387,7 +391,7 @@
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="data/vocab.js"></script>
+<script src="data/vocab.js?v=2"></script>
 <script>
 const STAGES = [
   {min:1,  emoji:"🥚", name:"蛋",     key:"egg",   img:"assets/pets/egg.png"},
@@ -723,13 +727,13 @@ function walkStep(){
   if(homeActive() && piggyAvail()>0) coinPop(1);
 }
 /* 🌤️ 日夜＋天氣系統(純CSS/JS,不用美術)：依真實時間變天色、隨機換天氣(晴/多雲/雨/雪)＋順便學天氣英文 */
-const WX=[{id:'sunny',en:'Sunny',ic:'☀️'},{id:'cloudy',en:'Cloudy',ic:'☁️'},{id:'rainy',en:'Rainy',ic:'🌧️'},{id:'snowy',en:'Snowy',ic:'❄️'}];
+const WX=[{id:'sunny',en:'Sunny',ic:'☀️'},{id:'cloudy',en:'Cloudy',ic:'☁️'},{id:'windy',en:'Windy',ic:'🍃'},{id:'rainy',en:'Rainy',ic:'🌧️'},{id:'snowy',en:'Snowy',ic:'❄️'}];
 let curWx='sunny', wxTimer=null;
 function skyPhase(){ const h=new Date().getHours(); if(h>=6&&h<9)return'dawn'; if(h>=9&&h<17)return'day'; if(h>=17&&h<19)return'dusk'; return'night'; }
 function applySky(){
   const sc=document.getElementById('scene'), tint=document.getElementById('skytint'); if(!sc||!tint)return;
   const ph=skyPhase(), illust=sc.classList.contains('illust');
-  const tints={day:'rgba(0,0,0,0)',dawn:'linear-gradient(rgba(255,205,140,.16),rgba(255,175,135,.08))',dusk:'linear-gradient(rgba(255,140,80,.22),rgba(110,80,150,.20))',night:'linear-gradient(rgba(18,24,66,.5),rgba(12,18,52,.55))'};
+  const tints={day:'rgba(0,0,0,0)',dawn:'linear-gradient(rgba(255,210,150,.12),rgba(255,185,140,.06))',dusk:'linear-gradient(rgba(255,150,90,.15),rgba(120,90,160,.13))',night:'linear-gradient(rgba(40,55,110,.24),rgba(28,40,90,.26))'};
   tint.style.background=tints[ph]||'';
   const night=ph==='night';
   const sun=sc.querySelector('.sun'); if(sun) sun.style.display=(night||illust)?'none':'';
@@ -743,8 +747,15 @@ function applySky(){
 function applyWeather(id,announce){
   curWx=id; const sc=document.getElementById('scene'), wx=document.getElementById('wx'); if(!sc||!wx)return;
   wx.innerHTML='';
-  if(id==='rainy'){ for(let i=0;i<26;i++){ const d=document.createElement('div'); d.className='rain'; d.style.left=Math.random()*100+'%'; d.style.top=(-10-Math.random()*40)+'%'; d.style.animationDuration=(0.5+Math.random()*0.4)+'s'; d.style.animationDelay=(Math.random()*0.8)+'s'; wx.appendChild(d);} }
-  else if(id==='snowy'){ for(let i=0;i<18;i++){ const d=document.createElement('div'); d.className='snow'; d.textContent='❄'; d.style.left=Math.random()*100+'%'; d.style.top=(-8-Math.random()*30)+'%'; d.style.animationDuration=(3+Math.random()*3)+'s'; d.style.animationDelay=(Math.random()*3)+'s'; wx.appendChild(d);} }
+  function drop(emoji,n,cls,dMin,dMax,sz){
+    for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='wxdrop '+cls; d.textContent=emoji;
+      d.style.left=Math.random()*100+'%'; d.style.fontSize=(sz+Math.random()*6)+'px';
+      d.style.animationDuration=(dMin+Math.random()*(dMax-dMin)).toFixed(2)+'s'; d.style.animationDelay=(Math.random()*dMax).toFixed(2)+'s';
+      wx.appendChild(d); }
+  }
+  if(id==='rainy') drop('💧',22,'wxfall',0.6,1.0,15);
+  else if(id==='snowy') drop('❄️',16,'wxsnow',3.5,6,16);
+  else if(id==='windy') drop('🍃',12,'wxwind',2.2,3.8,18);
   if(announce){ const w=WX.find(x=>x.id===id); if(w) toast(w.ic+' 今天天氣 '+w.en); }
 }
 function cycleWeather(){ const opts=WX.map(w=>w.id).filter(x=>x!==curWx); applyWeather(opts[Math.floor(Math.random()*opts.length)],true); }
@@ -1055,7 +1066,49 @@ function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
   else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack();
-  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); }
+  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); else if(m==="speak") renderSpeak(); }
+
+/* 🎤 開口唸（聽音辨識）：教學導向、單字＋短句、寬鬆比對、只鼓勵不判錯不扣分 */
+let speakItem=null;
+function _sn(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9' ]/g," ").replace(/\s+/g," ").trim(); }
+function _lev(a,b){ const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]); for(let j=0;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return d[m][n]; }
+function speakMatch(target,heard){ const t=_sn(target),h=_sn(heard); if(!h) return false; if(h===t) return true;
+  if(t.split(" ").length===1){ return h.includes(t)||t.includes(h)||_lev(h.replace(/ /g,""),t)<=1; }
+  const tw=t.split(" "), hw=new Set(h.split(" ")); const hit=tw.filter(w=>hw.has(w)).length; return hit/tw.length>=0.6; }
+function renderSpeak(){
+  const sents=(typeof getSentences==="function")?getSentences(S.grades):[];
+  if(sents.length && Math.random()<0.4){ const s=sents[Math.floor(Math.random()*sents.length)]; speakItem={type:"sentence",en:s.en,zh:s.zh}; }
+  else { const w=pickWord(); speakItem={type:"word",en:w.en,zh:w.zh}; }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">🎤 開口唸：先聽老師唸，再換你唸～唸就有獎勵！</div>
+     <div class="zh" style="font-size:19px">${speakItem.zh}</div>
+     <div style="font-size:${speakItem.type==="sentence"?20:26}px;font-weight:900;color:#3a5a7a;margin:6px 0">${speakItem.en}</div>
+     <button class="speak" onclick="speak(speakItem.en)">🔊 聽老師唸</button>`+
+    (SR? `<button class="speak big" id="micBtn" onclick="startSpeak()">🎤 換我唸</button>
+       <div id="speakMsg" style="margin-top:8px;color:#7a6a52;font-size:14px;min-height:20px"></div>`
+      : `<div style="margin-top:8px;color:#c0563a;font-size:13px">這個瀏覽器沒有語音辨識，用 <b>Chrome</b> 打開才能「開口唸」哦。</div>
+         <button class="opt" onclick="markLearned(speakItem.en);gotRight(1);speak(speakItem.en);toast('跟著唸很棒！🪙+1');setTimeout(renderSpeak,700)">✅ 我跟著唸過了</button>`)+
+    `<button class="opt" style="margin-top:6px" onclick="renderSpeak()">下一個 ▶</button>`;
+  setTimeout(()=>speak(speakItem.en),300);
+}
+function startSpeak(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return;
+  const msg=document.getElementById("speakMsg"), btn=document.getElementById("micBtn");
+  const r=new SR(); r.lang="en-US"; r.interimResults=false; r.maxAlternatives=4;
+  if(msg) msg.textContent="🎤 聽你唸…對著麥克風唸唸看"; if(btn) btn.disabled=true;
+  r.onresult=(e)=>{ let ok=false, heard="";
+    const alts=e.results[0]; for(let i=0;i<alts.length;i++){ const a=alts[i].transcript; if(!heard) heard=a; if(speakMatch(speakItem.en,a)){ ok=true; break; } }
+    if(ok){ if(speakItem.type==="word") markLearned(speakItem.en); gotRight(1);
+      if(speakItem.type==="word" && Math.random()<0.5) gainCard(speakItem.en,0);
+      speak(speakItem.en); toast("唸得好！👏 🪙+1"); if(msg) msg.textContent="👏 太棒了！你唸了「"+heard+"」"; setTimeout(renderSpeak,1200); }
+    else { if(msg) msg.textContent="沒關係，再一起唸一次～（我聽到「"+(heard||"…")+"」）"; speak(speakItem.en); if(btn) btn.disabled=false; }
+  };
+  r.onerror=(ev)=>{ if(msg) msg.textContent=(ev&&ev.error==="not-allowed")?"要允許麥克風才能唸哦 🎤":"沒收到聲音，再按一次 🎤"; if(btn) btn.disabled=false; };
+  r.onend=()=>{ if(btn) btn.disabled=false; };
+  try{ r.start(); }catch(e){ if(btn) btn.disabled=false; }
+}
 function pickWord(){ return words[Math.floor(Math.random()*words.length)]; }
 function distractors(en,n){ const o=[]; let g=0; while(o.length<n&&g++<200){ const w=pickWord().en; if(w!==en&&!o.includes(w)) o.push(w);} return o; }
 
