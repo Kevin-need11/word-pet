@@ -507,7 +507,9 @@ var CloudSave=(function(){
     logout:function(){ acct=pin=name=null; localStorage.removeItem(LS); },
     load:function(cb){ if(!acct){cb(null);return;} jsonp({action:'load',account:acct,pin:pin,game:game},function(r){ cb(r.ok?(r.data||''):null); }); },
     push:function(dataStr){ if(!acct)return; clearTimeout(pushTimer); pushTimer=setTimeout(function(){ try{ fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name})}); }catch(e){} },1500); },
-    pushNow:function(dataStr){ if(!acct||!dataStr)return; clearTimeout(pushTimer); try{ var body=JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name}); if(navigator.sendBeacon){ navigator.sendBeacon(URL, new Blob([body],{type:'text/plain'})); } else { fetch(URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain'},body:body}); } }catch(e){} }
+    pushNow:function(dataStr){ if(!acct||!dataStr)return; clearTimeout(pushTimer); try{ var body=JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name}); if(navigator.sendBeacon){ navigator.sendBeacon(URL, new Blob([body],{type:'text/plain'})); } else { fetch(URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain'},body:body}); } }catch(e){} },
+    sendGift:function(to,petStr,cb){ jsonp({action:'sendgift',account:acct,pin:pin,game:game,to:to,pet:petStr,name:name||acct},cb); },
+    checkGifts:function(cb){ if(!acct){cb([]);return;} jsonp({action:'gifts',account:acct,pin:pin,game:game},function(r){ cb((r&&r.ok)?(r.gifts||[]):[]); }); }
   };
 })();
 CloudSave.init('wordpet');
@@ -1335,6 +1337,7 @@ function openCollection(){
         <div style="font-size:12px;color:#7a6a52">${st.name} · Lv.${lv}${spec?(' · 擅長'+spec.ic+spec.name):''}</div>
       </div>
       ${active?'':`<button class="linkbtn" style="color:#4a63d6;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="pickActive(${i})">設為主寵</button>`}
+      <button class="linkbtn" style="color:#3a8a5a;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="giftPet(${i})">🎁 送朋友</button>
       <button class="linkbtn" style="color:#c0563a;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="releasePet(${i})">🕊️ 放生</button>
     </div>`;
   }).join("");
@@ -1357,6 +1360,26 @@ function releasePet(i){
   S.coins+=5; save(); render();
   const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection();
   toast(nm+" 開心地回到森林了，掰掰～👋 🪙+5");
+}
+/* 🎁 送寶貝給朋友:輸入朋友帳號→送到對方禮物匣(對方下次登入自動收到) */
+function giftPet(i){
+  if(!CloudSave.account()){ toast("要先用「☁️帳號登入」才能送寶貝給朋友"); return; }
+  if(S.pets.length<=1){ toast("至少留 1 隻，不能把唯一的寶貝送走 🥺"); return; }
+  var p=S.pets[i], nm=speciesName(p.species);
+  var to=prompt("把「"+nm+"」送給哪個朋友？\n輸入對方的雲端帳號名字："); if(!to||!to.trim()) return; to=to.trim();
+  if(!confirm("確定把「"+nm+"」送給 "+to+" 嗎？\n(送出後這隻就到對方那裡了)")) return;
+  toast("送出中…🎁");
+  CloudSave.sendGift(to, JSON.stringify(p), function(r){
+    if(r&&r.ok){
+      S.pets.splice(i,1);
+      if(S.active>=S.pets.length) S.active=S.pets.length-1; else if(i<S.active) S.active--;
+      save(); render(); var md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection();
+      toast("已把 "+nm+" 送給 "+to+"！🎁");
+    } else {
+      var msg=(r&&r.msg==='no_friend')?"找不到這個朋友帳號，確認名字":(r&&r.msg==='self')?"不能送給自己啦 😆":(r&&r.msg==='wrong_pin')?"帳號驗證失敗":"送出失敗，網路再試一次";
+      toast("⚠️ "+msg);
+    }
+  });
 }
 /* ===== 🍲 湯站：點食材煮湯學英文、升級解鎖新湯、寶貝料理專長 ===== */
 const ING={carrot:"紅蘿蔔",potato:"馬鈴薯",onion:"洋蔥",corn:"玉米",tomato:"番茄",mushroom:"蘑菇",cabbage:"高麗菜",broccoli:"花椰菜",pumpkin:"南瓜",egg:"蛋",fish:"魚",shrimp:"蝦子",crab:"螃蟹",milk:"牛奶",cheese:"起司",butter:"奶油"};
@@ -1535,8 +1558,24 @@ function bootstrap(){
         if(localStr) CloudSave.pushNow(localStr);
         if(!S && best){ try{ localStorage.setItem("petSave", best); }catch(e){} S=migrate(JSON.parse(best)); enterGame(); }
       }
+      receiveGifts();
     });
   }
+}
+/* 🎁 收禮:登入時撈朋友送來的寶貝,加進收藏 */
+function receiveGifts(){
+  CloudSave.checkGifts(function(gifts){
+    if(!gifts||!gifts.length||!S) return;
+    var added=[];
+    gifts.forEach(function(g){ try{ var p=JSON.parse(g.pet); if(p&&p.species){
+      if(!p.id) p.id="p"+Date.now()+Math.floor(Math.random()*1000);
+      if(typeof p.xp!=="number") p.xp=0;
+      if(!p.care||typeof p.care.hunger!=="number") p.care={hunger:100,mood:100,clean:100,ts:now()};
+      if(!p.specialty) p.specialty=JOBS[Math.floor(Math.random()*JOBS.length)].id;
+      p.away=null; S.pets.push(p); added.push({nm:speciesName(p.species),from:g.from});
+    } }catch(e){} });
+    if(added.length){ save(); render(); added.forEach(function(a){ toast("🎁 收到 "+a.from+" 送的 "+a.nm+"！"); }); }
+  });
 }
 bootstrap();
 </script>
