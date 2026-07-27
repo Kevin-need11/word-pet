@@ -64,13 +64,13 @@
   .scene .stars{position:absolute;inset:0;z-index:1;pointer-events:none;}
   .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 4px #fff;animation:twinkle 2.6s ease-in-out infinite;}
   @keyframes twinkle{0%,100%{opacity:.25;}50%{opacity:1;}}
-  .wxdrop{position:absolute;top:-10%;pointer-events:none;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15));}
-  .wxfall{animation:wxfall linear infinite;}
-  @keyframes wxfall{from{top:-10%;}to{top:112%;}}
-  .wxsnow{animation:wxsnow linear infinite;}
-  @keyframes wxsnow{0%{top:-8%;transform:translateX(0);}50%{transform:translateX(14px);}100%{top:110%;transform:translateX(-8px);}}
-  .wxwind{animation:wxwind linear infinite;}
-  @keyframes wxwind{from{top:-6%;transform:translateX(0) rotate(0);}to{top:100%;transform:translateX(120px) rotate(220deg);}}
+  /* 柔和 CSS 天氣粒子(非emoji) */
+  .rd{position:absolute;top:-12%;width:2px;height:22px;background:linear-gradient(rgba(190,220,255,0),rgba(185,215,255,.5));border-radius:2px;pointer-events:none;animation:rdfall linear infinite;}
+  @keyframes rdfall{from{top:-12%;}to{top:114%;}}
+  .sf{position:absolute;top:-8%;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff,rgba(255,255,255,.55));box-shadow:0 0 3px rgba(255,255,255,.6);pointer-events:none;animation:sffall linear infinite;}
+  @keyframes sffall{0%{top:-8%;transform:translateX(0);}50%{transform:translateX(16px);}100%{top:112%;transform:translateX(-10px);}}
+  .lf{position:absolute;top:-8%;width:15px;height:9px;border-radius:60% 60% 40% 40%/70% 70% 40% 40%;background:linear-gradient(135deg,#a6d178,#6fae4a);opacity:.8;pointer-events:none;animation:lffly linear infinite;}
+  @keyframes lffly{from{top:-8%;transform:translateX(0) rotate(0);}to{top:102%;transform:translateX(140px) rotate(260deg);}}
   /* 多寵物在場景裡走動 */
   .pets{position:absolute;inset:0;z-index:2;pointer-events:none;}
   .petsprite{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;transition:filter .2s;pointer-events:auto;}
@@ -747,15 +747,9 @@ function applySky(){
 function applyWeather(id,announce){
   curWx=id; const sc=document.getElementById('scene'), wx=document.getElementById('wx'); if(!sc||!wx)return;
   wx.innerHTML='';
-  function drop(emoji,n,cls,dMin,dMax,sz){
-    for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='wxdrop '+cls; d.textContent=emoji;
-      d.style.left=Math.random()*100+'%'; d.style.fontSize=(sz+Math.random()*6)+'px';
-      d.style.animationDuration=(dMin+Math.random()*(dMax-dMin)).toFixed(2)+'s'; d.style.animationDelay=(Math.random()*dMax).toFixed(2)+'s';
-      wx.appendChild(d); }
-  }
-  if(id==='rainy') drop('💧',22,'wxfall',0.6,1.0,15);
-  else if(id==='snowy') drop('❄️',16,'wxsnow',3.5,6,16);
-  else if(id==='windy') drop('🍃',12,'wxwind',2.2,3.8,18);
+  if(id==='rainy'){ for(let i=0;i<34;i++){ const d=document.createElement('div'); d.className='rd'; d.style.left=Math.random()*100+'%'; d.style.transform='rotate(10deg)'; d.style.opacity=(0.35+Math.random()*0.4).toFixed(2); d.style.animationDuration=(0.5+Math.random()*0.4).toFixed(2)+'s'; d.style.animationDelay=(Math.random()*0.9).toFixed(2)+'s'; wx.appendChild(d);} }
+  else if(id==='snowy'){ for(let i=0;i<20;i++){ const d=document.createElement('div'); d.className='sf'; const s=(5+Math.random()*5).toFixed(1); d.style.width=s+'px'; d.style.height=s+'px'; d.style.left=Math.random()*100+'%'; d.style.opacity=(0.6+Math.random()*0.4).toFixed(2); d.style.animationDuration=(4+Math.random()*3).toFixed(2)+'s'; d.style.animationDelay=(Math.random()*4).toFixed(2)+'s'; wx.appendChild(d);} }
+  else if(id==='windy'){ for(let i=0;i<9;i++){ const d=document.createElement('div'); d.className='lf'; d.style.left=(Math.random()*90)+'%'; d.style.animationDuration=(2.4+Math.random()*1.6).toFixed(2)+'s'; d.style.animationDelay=(Math.random()*3).toFixed(2)+'s'; wx.appendChild(d);} }
   if(announce){ const w=WX.find(x=>x.id===id); if(w) toast(w.ic+' 今天天氣 '+w.en); }
 }
 function cycleWeather(){ const opts=WX.map(w=>w.id).filter(x=>x!==curWx); applyWeather(opts[Math.floor(Math.random()*opts.length)],true); }
@@ -1355,6 +1349,7 @@ function openSettings(){
     <button class="btn" onclick="saveSettings()">儲存並繼續</button>
     <button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="cloudLogin()">☁️ 雲端帳號（登入／換手機不丟）</button>
     <button class="linkbtn" style="color:#2a9d8f" onclick="backupToCloud()">☁️ 立即備份並確認</button>
+    <button class="linkbtn" style="color:#c08a3a" onclick="switchAccount()">🔄 登出／切換帳號</button>
     <button class="linkbtn" style="color:#4a63d6" onclick="renameUser()">✏️ 改名字</button>
     <button class="linkbtn" style="color:#e0913a;font-weight:900" onclick="reloadLatest()">🔄 重新整理（載入最新版）</button>
     <button class="linkbtn" onclick="resetAll()">重設全部進度</button></div>`;
@@ -1370,6 +1365,16 @@ function saveSettings(){ let gs=chosenGrades(); if(!gs.length) gs=[1]; S.grades=
 function resetAll(){ if(!confirm("確定要清空這台裝置上的進度嗎？")) return; localStorage.removeItem("petSave"); location.reload(); }
 /* 🔄 重新整理載入最新版：加時間戳參數繞過快取(書簽/全螢幕PWA沒有瀏覽器重整鈕時用);localStorage進度保留不受影響 */
 function reloadLatest(){ try{ toast("載入最新版中…🔄"); }catch(e){} location.href = location.pathname + "?r=" + Date.now(); }
+/* 🔄 登出／切換帳號：先把目前進度存回「目前帳號」雲端→登出→清本機(下個帳號載自己的雲端)→回登入畫面 */
+function switchAccount(){
+  var logged = !!CloudSave.account();
+  if(!confirm(logged? "要登出並切換帳號嗎？\n(先把目前進度存回雲端,登回原帳號可再取回)" : "目前沒登入雲端帳號。要清掉這台的進度、重新開始/登入嗎？")) return;
+  if(logged){ try{ CloudSave.pushNow(localStorage.getItem("petSave")); }catch(e){} }
+  CloudSave.logout();
+  localStorage.removeItem("petSave");   // 清本機,避免舊帳號進度混到新帳號
+  toast("已登出，回到登入畫面…");
+  setTimeout(function(){ location.href = location.pathname + "?r=" + Date.now(); }, 600);
+}
 /* ☁️ 立即備份並確認：推上雲後從雲端讀回核對，給明確成功/失敗回饋，讓你確定存到雲端了 */
 function backupToCloud(){
   if(!CloudSave.account()){ toast("要先用「☁️雲端帳號」登入，才能存到雲端"); return; }
