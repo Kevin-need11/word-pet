@@ -760,8 +760,9 @@ function onTick(){ decayCare(); refreshAway();
 }
 
 function goAway(kind, job){
-  const p=P();
-  if(p.away){ toast("牠已經出門了"); return; }
+  let idx = S.active;
+  if(S.pets[idx].away){ idx = S.pets.findIndex(x=>!x.away); if(idx<0){ toast("所有寶貝都出門了 🕐"); return; } }
+  const p = S.pets[idx];   // 主寵在家就派主寵;主寵在外就派第一隻在家的寶貝
   let coin = job.coin, pack=null;
   if(kind==="work" && job.id===p.specialty) coin = Math.round(coin*SPECIALTY_BONUS);   // 擅長的工作多賺
   if(kind==="trip"){                                     // 🎒 探險打包：便當+幸運符 花金幣
@@ -771,7 +772,7 @@ function goAway(kind, job){
   }
   p.away = {kind, id:job.id, ic:job.ic, name:job.name, coin, until: now() + job.min*60000, pack};
   save(); closeSheet(kind==="work"?"workWrap":"tripWrap"); render();
-  toast(job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
+  toast(speciesName(p.species)+" "+job.ic+" 出發！"+ (job.min>=60? Math.round(job.min/60)+" 小時":job.min+" 分") +"後回來");
 }
 function claimAway(i){
   const idx = (typeof i==="number")? i : S.active;
@@ -789,7 +790,7 @@ function claimAway(i){
   toast("回來了！🪙+"+gain+" "+extra);
 }
 
-function openWork(){ if(guardAway())return; const l=document.getElementById("jobList"); l.innerHTML="";
+function openWork(){ const l=document.getElementById("jobList"); l.innerHTML="";
   JOBS.forEach(j=> l.appendChild(jobRow(j,"work"))); openSheet("workWrap"); }
 function renderPack(){
   const host=document.getElementById("packPanel"); if(!host) return;
@@ -802,7 +803,7 @@ function renderPack(){
     CHARM.map((x,i)=>`<button class="packbtn${i===packCharm?' on':''}" onclick="packCharm=${i};renderPack()">${x.ic} ${x.name}<br><small>${x.cost?('🪙'+x.cost):'免費'}</small></button>`).join("")+`</div>`+
     `<div style="font-size:12px;font-weight:800;color:#e08a2f;margin-top:6px;">打包花費 🪙 ${cost}（你有 ${S.coins}）</div>`;
 }
-function openTrip(){ if(guardAway())return; const l=document.getElementById("tripList");
+function openTrip(){ const l=document.getElementById("tripList");
   l.innerHTML='<div id="packPanel" style="background:#f7f9ff;border-radius:12px;padding:10px 12px;margin-bottom:10px;"></div>';
   renderPack();
   TRIPS.forEach(j=> l.appendChild(jobRow(j,"trip"))); openSheet("tripWrap"); }
