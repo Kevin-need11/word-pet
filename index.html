@@ -490,10 +490,13 @@ var CloudSave=(function(){
       jsonp({action:'login',account:a,pin:pn},function(r){ if(r.ok){acct=a;pin=String(pn);name=String(nm).trim(); localStorage.setItem(LS,JSON.stringify({acct:acct,pin:pin,name:name}));} cb(r); }); },
     logout:function(){ acct=pin=name=null; localStorage.removeItem(LS); },
     load:function(cb){ if(!acct){cb(null);return;} jsonp({action:'load',account:acct,pin:pin,game:game},function(r){ cb(r.ok?(r.data||''):null); }); },
-    push:function(dataStr){ if(!acct)return; clearTimeout(pushTimer); pushTimer=setTimeout(function(){ try{ fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name})}); }catch(e){} },1500); }
+    push:function(dataStr){ if(!acct)return; clearTimeout(pushTimer); pushTimer=setTimeout(function(){ try{ fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name})}); }catch(e){} },1500); },
+    pushNow:function(dataStr){ if(!acct||!dataStr)return; clearTimeout(pushTimer); try{ var body=JSON.stringify({account:acct,pin:pin,game:game,data:dataStr,name:name}); if(navigator.sendBeacon){ navigator.sendBeacon(URL, new Blob([body],{type:'text/plain'})); } else { fetch(URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain'},body:body}); } }catch(e){} }
   };
 })();
 CloudSave.init('wordpet');
+// ★離開/切走頁面時,把本機最新存檔可靠沖上雲(sendBeacon),避免 debounce 未送出就跳頁而漏存
+window.addEventListener("pagehide", function(){ try{ if(CloudSave.account()) CloudSave.pushNow(localStorage.getItem("petSave")); }catch(e){} });
 function cloudLogin(){
   if(CloudSave.account()){ if(confirm("雲端帳號："+CloudSave.displayName()+"\n要登出這台的雲端連結嗎？(存檔還在雲端)")){ CloudSave.logout(); toast("已登出雲端"); var m=document.getElementById("settingsModal"); if(m)m.remove(); } return; }
   var nm=prompt("雲端存檔・取一個名字（換手機也用這個）："); if(!nm||!nm.trim())return; nm=nm.trim();
@@ -502,11 +505,20 @@ function cloudLogin(){
   CloudSave.login(nm,pn,function(res){
     if(!res.ok){ toast(res.msg==='wrong_pin'?"密碼不對，再試一次":"登入失敗，網路再試"); return; }
     CloudSave.load(function(data){
-      if(data && confirm("雲端有這個帳號的存檔！\n要把雲端進度下載、覆蓋這台嗎？\n（在新手機/新裝置第一次請按「確定」）")){ try{ localStorage.setItem("petSave",data); }catch(e){} }
-      else { CloudSave.push(localStorage.getItem("petSave")); }
-      toast("登入成功，載入最新版…☁️");
-      // ★登入＝同步存檔＋強制載最新版(加時間戳繞過書簽/PWA快取);存檔在localStorage保留
-      location.href = location.pathname + "?r=" + Date.now();
+      var local = localStorage.getItem("petSave");
+      if(local && local!=="null"){
+        // ★這台已有進度：保留本機、把本機可靠推上雲(sendBeacon,絕不被雲端舊檔蓋掉)
+        CloudSave.pushNow(local);
+        toast("已同步存檔，載入最新版…☁️");
+      } else if(data){
+        // 新裝置、這台沒進度：才把雲端存檔接回來
+        try{ localStorage.setItem("petSave", data); }catch(e){}
+        toast("已從雲端接回存檔，載入中…☁️");
+      } else {
+        toast("登入成功，載入最新版…☁️");
+      }
+      // 延遲讓 sendBeacon 送出,再 cache-busting 載最新版(存檔在 localStorage 保留)
+      setTimeout(function(){ location.href = location.pathname + "?r=" + Date.now(); }, 500);
     });
   });
 }
