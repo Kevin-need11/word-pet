@@ -708,7 +708,8 @@ function migrate(s){
     if(!p.facSkill) p.facSkill = FAC_CATS[Math.floor(Math.random()*FAC_CATS.length)].id;   // 擅長的設施類別(派對加成)
     if(typeof p.bond!=="number") p.bond = 0;   // ❤️親密度：答對單字累積、給永久學習加成
     if(typeof p.outfit!=="string") p.outfit = "none";   // 👗打扮：戴的配件
-    if(!Array.isArray(p.room)) p.room = [];             // 🏠迷你房間佈置的物品
+    if(!Array.isArray(p.room)) p.room = [];             // 🏠迷你房間佈置的物品(升級成{id,x,y}可自由拖放)
+    p.room = p.room.map((it,ri)=> (typeof it==="string")? {id:it, x:15+(ri%5)*17, y:(ri<5?66:84)} : (it&&it.id? {id:it.id, x:typeof it.x==="number"?it.x:50, y:typeof it.y==="number"?it.y:72} : null)).filter(Boolean);
     if(!Array.isArray(p.ownedOutfits)) p.ownedOutfits = [];       // 👗這隻買過的配件(每隻各自買)
     if(!Array.isArray(p.ownedRoomItems)) p.ownedRoomItems = [];   // 🏠這隻買過的家具(每隻各自買)
   });
@@ -1720,6 +1721,7 @@ function openCollection(){
 const OUTFITS=[{id:"none",ic:"",name:"不戴",en:"",cost:0},{id:"hat",ic:"🎩",name:"紳士帽",en:"hat",cost:12},{id:"crown",ic:"👑",name:"皇冠",en:"crown",cost:2,cur:"gem"},{id:"bow",ic:"🎀",name:"蝴蝶結",en:"ribbon",cost:12},{id:"cap",ic:"🧢",name:"鴨舌帽",en:"cap",cost:12},{id:"glasses",ic:"🕶️",name:"墨鏡",en:"glasses",cost:18},{id:"flower",ic:"🌸",name:"小花",en:"flower",cost:8},{id:"star",ic:"⭐",name:"星星",en:"star",cost:2,cur:"gem"},{id:"party",ic:"🥳",name:"派對帽",en:"party hat",cost:20},{id:"hp",ic:"🎧",name:"耳機",en:"headphones",cost:15},{id:"wings",ic:"🪽",name:"翅膀",en:"wings",cost:2,cur:"gem"},{id:"scarf",ic:"🧣",name:"圍巾",en:"scarf",cost:14},{id:"catears",ic:"🐱",name:"貓耳",en:"cat ears",cost:16}];
 const ROOMITEMS=[{id:"rug",ic:"🟫",name:"地毯",en:"rug",cost:12},{id:"plant",ic:"🪴",name:"盆栽",en:"plant",cost:12},{id:"sofa",ic:"🛋️",name:"沙發",en:"sofa",cost:25},{id:"pic",ic:"🖼️",name:"掛畫",en:"picture",cost:18},{id:"bed",ic:"🛏️",name:"小床",en:"bed",cost:22},{id:"toy",ic:"🧸",name:"玩偶",en:"teddy",cost:15},{id:"cake",ic:"🎂",name:"蛋糕",en:"cake",cost:10},{id:"ball",ic:"⚽",name:"皮球",en:"ball",cost:10},{id:"lamp",ic:"🏮",name:"燈籠",en:"lantern",cost:15}];
 function roomItemById(id){ return ROOMITEMS.find(x=>x.id===id); }
+function roomItemVis(id,size){ const r=roomItemById(id); const ic=r?r.ic:""; return `<img src="assets/roomitems/${id}.png" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${ic}'))">`; }
 /* 擁有＝每隻寵物各自買(p.ownedOutfits/p.ownedRoomItems)；集章卡限定配件(S.stampOutfits)是全體共用的特例 */
 function outfitOwned(p,oid){ return oid==="none" || (p&&(p.ownedOutfits||[]).indexOf(oid)>=0) || (S.stampOutfits||[]).indexOf(oid)>=0; }
 function roomItemOwned(p,did){ return !!(p&&(p.ownedRoomItems||[]).indexOf(did)>=0); }
@@ -1774,7 +1776,7 @@ function renderPetRoom(){
   if(first){ m=document.createElement("div"); m.className="modal"; m.id="petRoomModal"; }
   const st=stageFor(Math.floor(p.xp/XP_PER_LV)+1), nm=speciesName(p.species), oic=outfitIc(p);
   // 🏠 立體小房間：壁紙牆＋木地板，家具擺在地板、寵物站房裡(有 assets/scenes/room.png 就鋪上、更細膩)
-  const floorItems=(p.room||[]).map((id,idx)=>{const r=ROOMITEMS.find(x=>x.id===id);if(!r)return"";const x=14+(idx%6)*14.5, y=(idx<6?70:86);return `<span style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:24px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.2))"><img src="assets/roomitems/${id}.png" style="width:40px;height:40px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${r.ic}'))"></span>`;}).join("");
+  const floorItems=(p.room||[]).map((it)=>{const r=roomItemById(it.id);if(!r)return"";return `<span style="position:absolute;left:${it.x}%;top:${it.y}%;transform:translate(-50%,-50%);font-size:24px;cursor:grab;touch-action:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.22))" onpointerdown="startRoomDrag(event,${i},'${it.id}',this)">${roomItemVis(it.id,42)}</span>`;}).join("");
   const preview=`<div style="position:relative;height:156px;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
     <img src="assets/scenes/room.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
     ${floorItems}
@@ -1784,7 +1786,7 @@ function renderPetRoom(){
   let body="";
   if(petRoomTab==="dress"){
     body=`<div class="hint">幫 ${nm} 換配件（點一下就戴上）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
-      allOutfits().map(o=>{const own=outfitOwned(p,o.id);const sub=own?(o.en?'<span style="font-size:9px;color:#3a5a7a">'+o.en+' 🔊</span>':(o.id==='none'?'':'<span style="font-size:9px;color:#39a35a">✓</span>')):'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(o.cur)+o.cost+'</span>';return `<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.35">${o.ic||'🚫'}<br>${o.name}<br>${sub}</button>`;}).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
+      allOutfits().map(o=>{const own=outfitOwned(p,o.id);const sub=own?(o.en?'<span style="font-size:9px;color:#3a5a7a">'+o.en+' 🔊</span>':(o.id==='none'?'':'<span style="font-size:9px;color:#39a35a">✓</span>')):'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(o.cur)+o.cost+'</span>';return `<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:5px 8px;font-size:12px;cursor:pointer;line-height:1.3">${o.id==='none'?'🚫':outfitVis(o.id,30)}<br>${o.name}<br>${sub}</button>`;}).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
   } else if(petRoomTab==="feed"){
     body=`<div class="hint">單獨餵 ${nm}，肚子＋20、也更親 ❤️＋1</div>
       <div style="font-size:13px;margin:6px 0">🍖肚子 ${p.care.hunger}/100 · ❤️親密 ${p.bond||0} · 庫存 🍎${S.food}</div>
@@ -1792,7 +1794,7 @@ function renderPetRoom(){
       ${S.food<1?'<div class="hint" style="margin-top:6px">沒食物了，🛒商店買或等設施🧺生產</div>':''}`;
   } else {
     body=`<div class="hint">佈置 ${nm} 的房間（點物品放進／收起）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
-      ROOMITEMS.map(r=>{const on=(p.room||[]).indexOf(r.id)>=0;const own=roomItemOwned(p,r.id);const sub=on?'<span style="font-size:9px;color:#39a35a">已放</span>':(own?'<span style="font-size:9px;color:#3a5a7a">'+r.en+' 🔊</span>':'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(r.cur)+r.cost+'</span>');return `<button onclick="togglePetRoomItem(${i},'${r.id}')" style="border:2px solid ${on?'#3a8a5a':'#e6d5b8'};background:${on?'#e9f7ee':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.35">${r.ic}<br>${r.name}<br>${sub}</button>`;}).join("")+`</div>`;
+      ROOMITEMS.map(r=>{const on=(p.room||[]).some(it=>it.id===r.id);const own=roomItemOwned(p,r.id);const sub=on?'<span style="font-size:9px;color:#39a35a">已放</span>':(own?'<span style="font-size:9px;color:#3a5a7a">'+r.en+' 🔊</span>':'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(r.cur)+r.cost+'</span>');return `<button onclick="togglePetRoomItem(${i},'${r.id}')" style="border:2px solid ${on?'#3a8a5a':'#e6d5b8'};background:${on?'#e9f7ee':'#fff'};border-radius:12px;padding:5px 8px;font-size:12px;cursor:pointer;line-height:1.3">${roomItemVis(r.id,30)}<br>${r.name}<br>${sub}</button>`;}).join("")+`</div><div class="hint" style="margin-top:6px">🖐 房間裡的家具可以「拖動」自由擺位</div>`;
   }
   m.innerHTML=`<div class="sheet"><h2>🏠 ${nm} 的房間</h2>${preview}<div style="margin:2px 0">${tabs}</div>${body}
     ${i!==S.active?`<button class="linkbtn" style="color:#4a63d6;font-weight:900;margin-top:6px" onclick="setActive(${i});renderPetRoom()">💛 設為主寵（切換照顧/學習對象）</button>`:'<div class="hint" style="margin-top:6px">💛 目前的主寵（學習對象）</div>'}
@@ -1807,11 +1809,24 @@ function setPetOutfit(i,oid){
 function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;} S.food-=1; p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save(); render(); renderPetRoom(); toast("🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️"); }
 function togglePetRoomItem(i,did){
   const p=S.pets[i]; if(!p)return; if(!Array.isArray(p.room))p.room=[];
-  const k=p.room.indexOf(did);
+  const k=p.room.findIndex(it=>it.id===did);
   if(k>=0){ p.room.splice(k,1); save(); renderPetRoom(); return; }   // 已放的收起(免費)
   const r=roomItemById(did); if(!r)return;
   if(!roomItemOwned(p,did)){ if(!payFor(r.cost||0,r.cur)) return; if(!Array.isArray(p.ownedRoomItems))p.ownedRoomItems=[]; p.ownedRoomItems.push(did); toast("買到家具 "+r.ic+" "+r.name+"！(這隻的)"); }
-  p.room.push(did); if(r.en){ speak(r.en); markLearned(r.en); } save(); renderPetRoom();
+  p.room.push({id:did, x:30+Math.random()*40, y:72}); if(r.en){ speak(r.en); markLearned(r.en); } save(); renderPetRoom();   // 放進來預設位置，之後可拖
+}
+/* 🖐 房間家具自由拖放：在房間預覽框裡拖動、存 {x,y}% */
+function startRoomDrag(e,pi,id,el){
+  e.preventDefault(); const box=el.parentNode; try{el.setPointerCapture(e.pointerId);}catch(_){}
+  el.style.cursor="grabbing";
+  el.onpointermove=(ev)=>{
+    const rc=box.getBoundingClientRect(); if(!rc.width)return;
+    let x=(ev.clientX-rc.left)/rc.width*100, y=(ev.clientY-rc.top)/rc.height*100;
+    x=Math.max(6,Math.min(94,x)); y=Math.max(12,Math.min(92,y));
+    el.style.left=x+"%"; el.style.top=y+"%";
+    const it=(S.pets[pi].room||[]).find(o=>o.id===id); if(it){ it.x=+x.toFixed(1); it.y=+y.toFixed(1); }
+  };
+  el.onpointerup=(ev)=>{ el.onpointermove=null; el.onpointerup=null; el.style.cursor="grab"; try{el.releasePointerCapture(ev.pointerId);}catch(_){}; save(); };
 }
 function pickActive(i){ setActive(i); const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection(); toast("換 "+speciesName(P().species)+" 當主寵 💛"); }
 function releasePet(i){
