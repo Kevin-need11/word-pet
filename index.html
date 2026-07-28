@@ -284,7 +284,7 @@
       <div class="coin">🪙 <span id="coins">0</span></div>
       <div class="coin">⚡ <span id="stam">0</span></div>
       <div class="coin">💎 <span id="gem">0</span></div>
-      <div class="coin">🔖 <span id="stamp">0</span></div>
+      <div class="coin" onclick="openStampShop()" style="cursor:pointer">🔖 <span id="stamp">0</span></div>
     </div>
     <div class="hud" style="padding-top:0;">
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
@@ -667,6 +667,7 @@ function migrate(s){
   if(typeof s.zoom!=="number") s.zoom = 0;   // 地圖縮放：0=自動(依設施數看全圖)，>0=手動倍率
   if(!s.harvest || typeof s.harvest.ts!=="number") s.harvest = {ts:now()};   // 設施生產食物(離線也算)
   if(!Array.isArray(s.petDex)) s.petDex = [];   // 🐾寵物圖鑑：曾擁有過的物種(湊齊給永久加成)
+  if(!Array.isArray(s.stampOutfits)) s.stampOutfits = [];   // 🔖集章卡換到的限定配件
   // 📅 每日任務（登入連續獎勵＋今日任務）
   s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
@@ -1496,7 +1497,43 @@ function openCollection(){
 /* 🏠 每隻精靈獨立的房間：打扮(戴配件)／餵食(單獨餵)／佈置(擺房間物品) */
 const OUTFITS=[{id:"none",ic:"",name:"不戴"},{id:"hat",ic:"🎩",name:"紳士帽"},{id:"crown",ic:"👑",name:"皇冠"},{id:"bow",ic:"🎀",name:"蝴蝶結"},{id:"cap",ic:"🧢",name:"鴨舌帽"},{id:"glasses",ic:"🕶️",name:"墨鏡"},{id:"flower",ic:"🌸",name:"小花"},{id:"star",ic:"⭐",name:"星星"},{id:"party",ic:"🥳",name:"派對帽"}];
 const ROOMITEMS=[{id:"rug",ic:"🟫",name:"地毯"},{id:"plant",ic:"🪴",name:"盆栽"},{id:"sofa",ic:"🛋️",name:"沙發"},{id:"pic",ic:"🖼️",name:"掛畫"},{id:"bed",ic:"🛏️",name:"小床"},{id:"toy",ic:"🧸",name:"玩偶"},{id:"cake",ic:"🎂",name:"蛋糕"},{id:"ball",ic:"⚽",name:"皮球"},{id:"lamp",ic:"🏮",name:"燈籠"}];
-function outfitIc(p){ const o=OUTFITS.find(x=>x.id===(p&&p.outfit||"none")); return o?o.ic:""; }
+/* 🔖 集章卡商店：用印章換限定配件/道具（印章＝蓋設施/每日任務/學習領到，不課金不看廣告） */
+const STAMP_ITEMS=[
+  {id:"wizard",type:"outfit",ic:"🧙",name:"巫師帽",cost:8},
+  {id:"medal",type:"outfit",ic:"🎖️",name:"勳章",cost:6},
+  {id:"headphone",type:"outfit",ic:"🎧",name:"耳機",cost:6},
+  {id:"sunhat",type:"outfit",ic:"👒",name:"太陽帽",cost:7},
+  {id:"foodpack",type:"food",amt:10,name:"食物包 🍎×10",cost:5},
+  {id:"gem1",type:"gem",amt:1,name:"鑽石 💎×1",cost:12}
+];
+function allOutfits(){ return OUTFITS.concat(STAMP_ITEMS.filter(x=>x.type==="outfit" && (S.stampOutfits||[]).indexOf(x.id)>=0)); }
+function outfitIc(p){ const o=allOutfits().find(x=>x.id===(p&&p.outfit||"none")); return o?o.ic:""; }
+function openStampShop(){
+  const m=document.createElement("div"); m.className="modal"; m.id="stampModal";
+  const rows=STAMP_ITEMS.map(it=>{
+    const owned = it.type==="outfit" && (S.stampOutfits||[]).indexOf(it.id)>=0;
+    const right = owned? '<span style="color:#39a35a;font-weight:900">✓ 已擁有</span>'
+      : `<button class="linkbtn" style="color:#fff;background:#c9873a;border-radius:12px;width:auto;padding:7px 12px;margin:0" onclick="buyStampItem('${it.id}')">🔖${it.cost}</button>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px;margin-bottom:8px;background:#fdf1ec">
+      <div style="font-size:26px">${it.ic||'🎁'}</div>
+      <div style="flex:1;text-align:left;font-weight:900">${it.name}${it.type==='outfit'?' <span style="font-size:11px;color:#b09">限定配件</span>':''}</div>${right}</div>`;
+  }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🔖 集章卡商店</h2>
+    <div class="hint">用「印章 🔖」換限定配件和道具！印章＝蓋設施、每日任務、學習領到（不課金、不看廣告）。目前 🔖${S.stamp||0}。</div>
+    <div style="max-height:50vh;overflow:auto;margin-top:8px">${rows}</div>
+    <button class="btn" onclick="document.getElementById('stampModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+function buyStampItem(id){
+  const it=STAMP_ITEMS.find(x=>x.id===id); if(!it) return;
+  if(it.type==="outfit" && (S.stampOutfits||[]).indexOf(id)>=0){ toast("已經有了"); return; }
+  if((S.stamp||0)<it.cost){ toast("印章不夠～做學習任務、蓋設施領印章 🔖"); return; }
+  S.stamp-=it.cost;
+  if(it.type==="outfit"){ if(!Array.isArray(S.stampOutfits))S.stampOutfits=[]; S.stampOutfits.push(id); toast("換到限定配件 "+it.ic+" "+it.name+"！去 🏠房間 打扮戴上"); }
+  else if(it.type==="food"){ S.food+=it.amt; toast("換到 "+it.name); }
+  else if(it.type==="gem"){ S.gem=(S.gem||0)+it.amt; toast("換到 "+it.name); }
+  save(); render(); const md=document.getElementById("stampModal"); if(md) md.remove(); openStampShop();
+}
 let petRoomIdx=0, petRoomTab="dress";
 function openPetRoom(i){ petRoomIdx=i; petRoomTab="dress"; const cm=document.getElementById("collectionModal"); if(cm) cm.remove(); renderPetRoom(); }
 function renderPetRoom(){
@@ -1513,7 +1550,7 @@ function renderPetRoom(){
   let body="";
   if(petRoomTab==="dress"){
     body=`<div class="hint">幫 ${nm} 換配件（點一下就戴上）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
-      OUTFITS.map(o=>`<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.4">${o.ic||'🚫'}<br>${o.name}</button>`).join("")+`</div>`;
+      allOutfits().map(o=>`<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.4">${o.ic||'🚫'}<br>${o.name}</button>`).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
   } else if(petRoomTab==="feed"){
     body=`<div class="hint">單獨餵 ${nm}，肚子＋20、也更親 ❤️＋1</div>
       <div style="font-size:13px;margin:6px 0">🍖肚子 ${p.care.hunger}/100 · ❤️親密 ${p.bond||0} · 庫存 🍎${S.food}</div>
