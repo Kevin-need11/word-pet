@@ -662,6 +662,7 @@ function migrate(s){
   }).filter(Boolean);
   if(!Array.isArray(s.cards)) s.cards = [];
   if(!s.wordStats || typeof s.wordStats!=="object") s.wordStats = {};
+  if(!s.srs || typeof s.srs!=="object") s.srs = {};   // 🧠 間隔複習(SRS)：{en:{box,due}} 答對進盒、到期就重新出現複習
   if(!s.piggy || typeof s.piggy.ts!=="number") s.piggy = {ts: now()};
   if(!s.cardMeta || typeof s.cardMeta!=="object") s.cardMeta = {};   // 明信片稀有度 {en:'normal|rare|gold'}
   if(!Array.isArray(s.gear)) s.gear = [];          // 擁有的闖關道具
@@ -1409,7 +1410,7 @@ function openLearn(){ openSheet("learnWrap"); setMode(mode); if(careBonus()) toa
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeSheet(id){ clearMinigame(); document.getElementById(id).classList.add("hidden"); render(); }
 
-function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1;
+function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1; srsBump(en);
   // ❤️餵食＝答對單字：主寵親密度+1，親密度越高、每答對多賺金幣(永久學習加成)
   const p=P(); if(p){ p.bond=(p.bond||0)+1;
     const bonus=Math.floor(p.bond/25); if(bonus>0) S.coins+=bonus;
@@ -1483,7 +1484,26 @@ function startSpeak(){
   r.onend=()=>{ if(btn) btn.disabled=false; };
   try{ r.start(); }catch(e){ if(btn) btn.disabled=false; }
 }
-function pickWord(){ return words[Math.floor(Math.random()*words.length)]; }
+/* 🧠 間隔複習(SRS, Leitner盒)：答對→往上一盒、間隔拉長；到期的字優先重新出現讓小孩複習，剛學/沒學過的字穿插進來。教學導向、只調出題順序、絕不扣分不懲罰。 */
+const SRS_INT = [0, 40e3, 3*60e3, 12*60e3, 45*60e3, 3*3600e3, 12*3600e3, 24*3600e3, 3*86400e3, 7*86400e3];  // 各盒到期間隔(ms)
+function srsBump(en){ if(!S.srs) S.srs={}; const r=S.srs[en]||{box:0,due:0}; r.box=Math.min(r.box+1, SRS_INT.length-1); r.due=now()+SRS_INT[r.box]; S.srs[en]=r; }
+function pickWord(){
+  if(!words.length) return {en:"cat",zh:"貓",theme:""};
+  const t=now(), srs=S.srs||{};
+  const due=[], fresh=[], rest=[];
+  for(const w of words){ const r=srs[w.en];
+    if(!r || r.box===0) fresh.push(w);
+    else if(r.due<=t) due.push(w);
+    else rest.push(w);
+  }
+  // 55% 複習到期字、30% 學新字、剩下挑最久沒複習的；池空就退而求其次
+  const r=Math.random();
+  if(due.length && (r<0.55 || !fresh.length)) return due[Math.floor(Math.random()*due.length)];
+  if(fresh.length) return fresh[Math.floor(Math.random()*fresh.length)];
+  if(due.length) return due[Math.floor(Math.random()*due.length)];
+  if(rest.length){ rest.sort((a,b)=>(srs[a.en].due)-(srs[b.en].due)); return rest[Math.floor(Math.random()*Math.min(5,rest.length))]; }
+  return words[Math.floor(Math.random()*words.length)];
+}
 /* 干擾選項：同主題優先＋長度相近優先，逼小孩真的讀中文/聽音而非用排除法猜(審查:救學習效度) */
 function distractors(en,n){
   const self=words.find(w=>w.en===en), theme=self?self.theme:null, L=en.length;
