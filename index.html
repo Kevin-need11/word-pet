@@ -684,6 +684,7 @@ function migrate(s){
     if(p.away!==null && (!p.away || typeof p.away.until!=="number")) p.away = null;
     if(!p.id) p.id = "p"+Math.floor(Math.random()*1e9);
     if(!p.specialty) p.specialty = JOBS[Math.floor(Math.random()*JOBS.length)].id;
+    if(!p.facSkill) p.facSkill = FAC_CATS[Math.floor(Math.random()*FAC_CATS.length)].id;   // 擅長的設施類別(派對加成)
   });
   if(typeof s.active!=="number" || s.active<0 || s.active>=s.pets.length) s.active = 0;
   delete s.xp; delete s.care; delete s.away;   // 移除舊頂層單寵欄位
@@ -780,7 +781,7 @@ function piggyAvail(){ if(!S.piggy) return 0; return Math.min(piggyCap(), Math.f
 function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
 /* 🧺 設施生產：蓋好的設施讓寵物工作、慢慢生產食物(離線也算)。上限＝設施數×2，每 25 分產 1，鼓勵多蓋設施 */
 const HARVEST_RATE_MIN = 25;
-function harvestCap(){ return facCount()*2; }
+function harvestCap(){ return facCount()*2 + matchedCount()*2; }   // ✨擅長對到的設施多產食物
 function harvestAvail(){ if(!S.harvest || facCount()<=0) return 0; return Math.min(harvestCap(), Math.floor((now()-S.harvest.ts)/(HARVEST_RATE_MIN*60000))); }
 function collectHarvest(){ const a=harvestAvail(); if(a<=0) return; S.food+=a; S.harvest.ts=now(); save(); render(); toast("🧺 設施生產了 🍎+"+a); }
 /* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
@@ -1614,6 +1615,7 @@ function openBuild(){
     <div id="buildTabs" style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;justify-content:center"></div>
     <div id="buildList" style="max-height:48vh;overflow:auto"></div>
     <div id="buildCount" style="margin-top:6px;font-size:13px;color:#8a7a5a"></div>
+    <button class="linkbtn" style="color:#c08a3a;font-weight:900" onclick="document.getElementById('buildModal').remove();openStations()">🐾 設施派工（指定精靈進駐）</button>
     <button class="btn" onclick="document.getElementById('buildModal').remove()">關閉</button></div>`;
   document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
   renderBuildTabs(); renderBuildList();
@@ -1661,7 +1663,8 @@ function renderFacilities(){
     const pos=FAC_SLOTS[i%FAC_SLOTS.length];
     const el=document.createElement("div"); el.className="facitem";
     el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
-    el.innerHTML=`<div class="fi">${f.ic}</div><div class="fn">${f.name}</div>`;
+    const matched=(S.pets||[]).some(p=>p.station===id && !p.away && p.facSkill===f.cat);
+    el.innerHTML=`<div class="fi">${f.ic}${matched?'<span style="font-size:13px;vertical-align:top">✨</span>':''}</div><div class="fn">${f.name}</div>`;
     el.onclick=(e)=>{ e.stopPropagation(); facAction(id); };
     box.appendChild(el);
   });
@@ -1684,6 +1687,39 @@ function facAction(id){
   if(f.cat==='func'){ openDaily(); return; }                             // 公告欄→每日任務
   if(f.cat==='rest'){ const p=P(); if(p && !p.away){ p.care.mood=Math.min(100,p.care.mood+15); save(); render(); toast("😴 寵物在「"+f.name+"」休息，心情 +15"); } else toast("寵物出門了，等牠回來 🕐"); return; }
   if(f.cat==='spec'){ openCollection(); return; }
+}
+/* 🐾 設施派工：每個設施選要哪隻精靈進駐；精靈擅長類別對到設施就 ✨ 加成(食物產量) */
+function stationMatched(p){ if(!p||!p.station) return false; const f=facById(p.station); return !!(f && f.cat===p.facSkill); }
+function matchedCount(){ return (S.pets||[]).filter(p=>!p.away && stationMatched(p)).length; }
+function catName(cid){ const c=FAC_CATS.find(x=>x.id===cid); return c?c.name:"—"; }
+function assignPetToFacility(i,id){
+  if(!S.pets[i]) return; const f=facById(id); if(!f) return;
+  S.pets[i].station=id; save(); render();
+  const md=document.getElementById("stationModal"); if(md) md.remove(); openStations();
+  toast((S.pets[i].facSkill===f.cat? "✨ 擅長加成！":"")+speciesName(S.pets[i].species)+" 進駐 "+f.name);
+}
+function openStations(){
+  const m=document.createElement("div"); m.className="modal"; m.id="stationModal";
+  const ids=(S.facilities||[]);
+  const rows = ids.length ? ids.map(id=>{
+    const f=facById(id); if(!f) return "";
+    const res=(S.pets||[]).map((p,i)=>({p,i})).filter(x=>x.p.station===id && !x.p.away);
+    const resTxt = res.length? res.map(x=>speciesEmoji(x.p.species)+speciesName(x.p.species)+(stationMatched(x.p)?" ✨":"")).join("、") : "（還沒精靈）";
+    const petBtns = (S.pets||[]).map((p,i)=>{
+      const match=p.facSkill===f.cat, here=p.station===id;
+      return `<button onclick="assignPetToFacility(${i},'${id}')" style="border:2px solid ${here?'#e0a24a':'#e6d5b8'};background:${here?'#fff3e0':'#fff'};border-radius:10px;padding:4px 8px;margin:2px;font-size:12px;font-weight:900;cursor:pointer">${speciesEmoji(p.species)}${speciesName(p.species)}${match?" ✨":""}</button>`;
+    }).join("");
+    return `<div style="padding:9px;border-radius:12px;margin-bottom:8px;background:#fff6e6;text-align:left">
+      <div style="font-weight:900">${f.ic} ${f.name} <span style="font-size:11px;color:#8a7a5a">${catName(f.cat)}</span></div>
+      <div style="font-size:12px;color:#5a4a2a;margin:3px 0">目前進駐：${resTxt}</div>
+      <div>${petBtns}</div></div>`;
+  }).join("") : '<div class="hint">還沒蓋設施，先去 🏗️ 建造設施</div>';
+  m.innerHTML=`<div class="sheet"><h2>🐾 設施派工</h2>
+    <div class="hint">每個設施選一隻精靈進駐。精靈「擅長」對到設施類別(✨)＝食物產量加成！點精靈把牠指派到那個設施。</div>
+    <div style="max-height:50vh;overflow:auto;margin-top:8px">${rows}</div>
+    <div style="font-size:12px;color:#8a7a5a;margin-top:4px">✨ 擅長對到的設施：<b>${matchedCount()}</b> 個（食物產量加成）</div>
+    <button class="btn" onclick="document.getElementById('stationModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
 }
 /* 🗺️ 地圖縮放＋自動擴大：設施越多、看全圖自動縮小讓全部進畫面；＋/－手動；佈置模式強制 1 倍免拖曳座標跑掉 */
 function autoZoom(){ const n=facCount(); return n<=9?1 : n<=15?0.82 : n<=21?0.70 : 0.60; }
