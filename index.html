@@ -63,6 +63,11 @@
   .scene .moon{position:absolute;top:16px;right:22px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fffef0,#e6ecff);box-shadow:0 0 22px #cfe0ff;z-index:1;}
   .scene .stars{position:absolute;inset:0;z-index:1;pointer-events:none;}
   .star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 4px #fff;animation:twinkle 2.6s ease-in-out infinite;}
+  .fireflies{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;}
+  .firefly{position:absolute;width:6px;height:6px;border-radius:50%;background:radial-gradient(circle,#fff7a8,#ffe062);box-shadow:0 0 8px 2px rgba(255,227,122,.85);animation:flit 4s ease-in-out infinite, glow 1.5s ease-in-out infinite;}
+  @keyframes flit{0%,100%{transform:translate(0,0)}25%{transform:translate(14px,-10px)}50%{transform:translate(-8px,-18px)}75%{transform:translate(10px,-6px)}}
+  @keyframes glow{0%,100%{opacity:.2}50%{opacity:1}}
+  .nightlamp{position:absolute;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,120,.55),rgba(255,214,120,0) 70%);z-index:1;pointer-events:none;animation:glow 2.4s ease-in-out infinite;}
   @keyframes twinkle{0%,100%{opacity:.25;}50%{opacity:1;}}
   /* 柔和 CSS 天氣粒子(非emoji) */
   .rd{position:absolute;top:-12%;width:2px;height:22px;background:linear-gradient(rgba(190,220,255,0),rgba(185,215,255,.5));border-radius:2px;pointer-events:none;animation:rdfall linear infinite;}
@@ -955,6 +960,16 @@ function applySky(){
   let stars=sc.querySelector('.stars');
   if(night && !illust && !stars){ stars=document.createElement('div'); stars.className='stars'; for(let i=0;i<14;i++){ const s=document.createElement('div'); s.className='star'; s.style.left=(4+Math.random()*92)+'%'; s.style.top=(4+Math.random()*46)+'%'; s.style.animationDelay=(Math.random()*2.6)+'s'; stars.appendChild(s);} sc.appendChild(stars); }
   else if((!night||illust) && stars){ stars.remove(); }
+  // 🪔 夜晚/黃昏：螢火蟲 + 暖燈光（對齊貓咪與湯的夜景）
+  const nightish = night || ph==='dusk';
+  let flies=sc.querySelector('.fireflies');
+  if(nightish && !flies){ flies=document.createElement('div'); flies.className='fireflies';
+    for(let i=0;i<7;i++){ const f=document.createElement('div'); f.className='firefly'; f.style.left=(8+Math.random()*84)+'%'; f.style.top=(34+Math.random()*46)+'%'; f.style.animationDuration=(3+Math.random()*3).toFixed(1)+'s, '+(1.1+Math.random()*1.2).toFixed(1)+'s'; f.style.animationDelay=(Math.random()*3).toFixed(1)+'s'; flies.appendChild(f);} sc.appendChild(flies); }
+  else if(!nightish && flies){ flies.remove(); }
+  let lamps=sc.querySelector('.lamps');
+  if(night && !lamps){ lamps=document.createElement('div'); lamps.className='lamps'; lamps.style.cssText='position:absolute;inset:0;z-index:1;pointer-events:none';
+    [[18,60],[80,58],[50,32]].forEach(pos=>{ const l=document.createElement('div'); l.className='nightlamp'; l.style.left='calc('+pos[0]+'% - 30px)'; l.style.top='calc('+pos[1]+'% - 30px)'; lamps.appendChild(l);}); sc.appendChild(lamps); }
+  else if(!night && lamps){ lamps.remove(); }
 }
 function applyWeather(id,announce){
   curWx=id; const sc=document.getElementById('scene'), wx=document.getElementById('wx'); if(!sc||!wx)return;
