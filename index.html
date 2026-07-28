@@ -1715,7 +1715,7 @@ function renderPetRoom(){
   if(first){ m=document.createElement("div"); m.className="modal"; m.id="petRoomModal"; }
   const st=stageFor(Math.floor(p.xp/XP_PER_LV)+1), nm=speciesName(p.species), oic=outfitIc(p);
   // 🏠 立體小房間：壁紙牆＋木地板，家具擺在地板、寵物站房裡(有 assets/scenes/room.png 就鋪上、更細膩)
-  const floorItems=(p.room||[]).map((id,idx)=>{const r=ROOMITEMS.find(x=>x.id===id);if(!r)return"";const x=14+(idx%6)*14.5, y=(idx<6?70:86);return `<span style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:24px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.2))">${r.ic}</span>`;}).join("");
+  const floorItems=(p.room||[]).map((id,idx)=>{const r=ROOMITEMS.find(x=>x.id===id);if(!r)return"";const x=14+(idx%6)*14.5, y=(idx<6?70:86);return `<span style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:24px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.2))"><img src="assets/roomitems/${id}.png" style="width:40px;height:40px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${r.ic}'))"></span>`;}).join("");
   const preview=`<div style="position:relative;height:156px;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
     <img src="assets/scenes/room.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
     ${floorItems}
