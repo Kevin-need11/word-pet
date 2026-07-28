@@ -264,10 +264,16 @@
   </div>
 
   <div id="home" class="hidden">
-    <div class="hud">
+    <div class="hud" style="flex-wrap:nowrap;overflow-x:auto;gap:6px;padding-bottom:2px;">
       <div class="coin">🍎 <span id="food">0</span></div>
       <div class="coin">🪙 <span id="coins">0</span></div>
+      <div class="coin">⚡ <span id="stam">0</span></div>
+      <div class="coin">💎 <span id="gem">0</span></div>
+      <div class="coin">🔖 <span id="stamp">0</span></div>
+    </div>
+    <div class="hud" style="padding-top:0;">
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
+      <button class="gear" id="dailyBtn" onclick="openDaily()" style="position:relative">📅<span id="dailyDot" class="hidden" style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;background:#ff4d4d;border-radius:50%;box-shadow:0 0 0 2px #eaf6ff"></span></button>
       <button class="gear" onclick="openDex()">📖</button>
       <button class="gear" onclick="openCollection()">🐾</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
@@ -452,11 +458,11 @@ const EGG_COST = 30;                   // 買一顆蛋（多養一隻）
 const THEMES = [
   {id:"meadow", name:"草原",  cost:0,  bg:"linear-gradient(180deg,#aedcff 0%,#d3efff 46%,#bff0c8 62%,#a6e39a 100%)"},
   {id:"kitchen", name:"🍲森林廚房", cost:0, bg:"linear-gradient(180deg,#cfe8d0 0%,#d8ecc8 46%,#e6e0c2 64%,#dcd3ad 100%)", img:"assets/scenes/kitchen.png"},
-  {id:"beach",  name:"海邊",  cost:40, bg:"linear-gradient(180deg,#8fd8ff 0%,#bfeeff 50%,#ffe9b0 66%,#ffd98a 100%)"},
-  {id:"sakura", name:"櫻花",  cost:50, bg:"linear-gradient(180deg,#ffd9ec 0%,#ffe9f4 48%,#d8f0c0 66%,#bfe6a0 100%)"},
-  {id:"night",  name:"星空",  cost:60, bg:"linear-gradient(180deg,#2b3a6b 0%,#3f4f8c 45%,#5a6b9c 62%,#4a6b52 100%)"},
-  {id:"sunset", name:"黃昏",  cost:60, bg:"linear-gradient(180deg,#ffb37a 0%,#ffd9a0 46%,#c9d98a 64%,#9ec87a 100%)"},
-  {id:"snow",   name:"雪地",  cost:70, bg:"linear-gradient(180deg,#cfe6ff 0%,#eaf6ff 50%,#f2f8ff 64%,#dfeaf2 100%)"},
+  {id:"beach",  name:"海邊",  cost:40, bg:"linear-gradient(180deg,#8fd8ff 0%,#bfeeff 50%,#ffe9b0 66%,#ffd98a 100%)", img:"assets/scenes/beach.png"},
+  {id:"sakura", name:"櫻花",  cost:50, bg:"linear-gradient(180deg,#ffd9ec 0%,#ffe9f4 48%,#d8f0c0 66%,#bfe6a0 100%)", img:"assets/scenes/sakura.png"},
+  {id:"night",  name:"星空",  cost:60, bg:"linear-gradient(180deg,#2b3a6b 0%,#3f4f8c 45%,#5a6b9c 62%,#4a6b52 100%)", img:"assets/scenes/night.png"},
+  {id:"sunset", name:"黃昏",  cost:60, bg:"linear-gradient(180deg,#ffb37a 0%,#ffd9a0 46%,#c9d98a 64%,#9ec87a 100%)", img:"assets/scenes/sunset.png"},
+  {id:"snow",   name:"雪地",  cost:70, bg:"linear-gradient(180deg,#cfe6ff 0%,#eaf6ff 50%,#f2f8ff 64%,#dfeaf2 100%)", img:"assets/scenes/snow.png"},
   // 插畫背景：Kevin 用 Nano Banana 生「溫暖手繪小屋+庭院」放 assets/scenes/home.png，選這個就自動鋪上（沒圖則暖色底）
   {id:"home", name:"🏡插畫小屋", cost:0, bg:"linear-gradient(180deg,#e9ddc4 0%,#e7e2cf 46%,#d9e6be 64%,#cfe0ad 100%)", img:"assets/scenes/home.png"}
 ];
@@ -581,6 +587,13 @@ function migrate(s){
   if(!s.themes.includes(s.theme)) s.theme = "kitchen";
   if(typeof s.soupLv!=="number") s.soupLv = 1;      // 🍲 湯站等級
   if(typeof s.soupXp!=="number") s.soupXp = 0;
+  // 💰 四代幣（金幣已有 s.coins）：⚡體力 / 💎鑽石 / 🔖印章
+  if(typeof s.stamina!=="number") s.stamina = 100;
+  if(typeof s.stamTs!=="number") s.stamTs = now();
+  if(typeof s.gem!=="number") s.gem = 0;
+  if(typeof s.stamp!=="number") s.stamp = 0;
+  // 📅 每日任務（登入連續獎勵＋今日任務）
+  s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
   if(!Array.isArray(s.pets) || !s.pets.length){
     const p = newPet("dragon");
@@ -641,13 +654,20 @@ function careUp(k){
   if(k==="hunger"){ if(S.food<1){ toast("沒食物了，去🛒商店買 🍎"); return; } S.food-=1; p.care.hunger=Math.min(100,p.care.hunger+20); toast("餵飽一點 😋"); }
   if(k==="mood"){ p.care.mood=Math.min(100,p.care.mood+20); toast("陪牠玩，好開心 🎾"); }
   if(k==="clean"){ p.care.clean=Math.min(100,p.care.clean+25); toast("洗香香 🧼✨"); }
+  bumpDaily("care");
   save(); render();
 }
 
 function render(){
   const p = P(), lv = levelOf(), st = stageFor(lv);
+  regenStam(); S.dailyq = rollDaily(S.dailyq);
   document.getElementById("food").textContent = S.food;
   document.getElementById("coins").textContent = S.coins;
+  var _c;
+  if(_c=document.getElementById("stam")) _c.textContent = S.stamina;
+  if(_c=document.getElementById("gem")) _c.textContent = S.gem;
+  if(_c=document.getElementById("stamp")) _c.textContent = S.stamp;
+  updateDailyDot();
   document.getElementById("lv").textContent = lv;
   document.getElementById("lv2").textContent = lv;
   document.getElementById("stageName").textContent = st.name;
@@ -1074,10 +1094,11 @@ function gotRight(bonus){
   S.coins += n; S.correct += 1;                        // 答對單字 → 賺錢（不是直接給食物）
   S.daily.n = (S.daily.n||0) + 1;
   if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
+  bumpDaily("words");
   save(); render();
 }
 // 小遊戲共用計分（瘦身：原本在 flash/whack/bubble/fish 各寫一次）
-function scoreOne(bonus){ S.coins+=(bonus||1); S.correct++; S.daily.n=(S.daily.n||0)+1; save(); }
+function scoreOne(bonus){ S.coins+=(bonus||1); S.correct++; S.daily.n=(S.daily.n||0)+1; bumpDaily("words"); save(); }
 function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
@@ -1446,6 +1467,7 @@ function cookDone(r){
   S.coins+=coin; S.food+=2; gainCard(r.ing[Math.floor(Math.random()*r.ing.length)],0);
   S.soupXp=(S.soupXp||0)+1; const need=soupLv()*3; let leveled=false;
   if(S.soupXp>=need && soupLv()<RECIPES.length){ S.soupLv=soupLv()+1; S.soupXp=0; leveled=true; }
+  bumpDaily("soups");
   save(); render();
   const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
   toast(r.name+" 完成！🪙+"+coin+" 🍎+2"+(fav?"（🐱擅長加成！）":""));
@@ -1577,6 +1599,99 @@ function receiveGifts(){
     if(added.length){ save(); render(); added.forEach(function(a){ toast("🎁 收到 "+a.from+" 送的 "+a.nm+"！"); }); }
   });
 }
+/* ========== 💰 四代幣 ＋ 📅 每日任務（第一波） ========== */
+const STAM_MAX=120, STAM_REGEN_MIN=6;            // 體力上限＋每6分回1
+const CUR_IC={coins:"🪙", stam:"⚡", gem:"💎", stamp:"🔖"};
+const CUR_NAME={coins:"金幣", stam:"體力", gem:"鑽石", stamp:"印章"};
+// 連續登入 7 天獎勵（不營利：以印章/鑽石/金幣為主，養每天打開的習慣）
+const LOGIN_REWARDS=[
+  {k:"coins",n:50},{k:"stamp",n:200},{k:"gem",n:1},{k:"coins",n:100},
+  {k:"stamp",n:500},{k:"gem",n:2},{k:"gem",n:5}
+];
+// 今日任務——全部綁「學習/照顧」，完成領代幣（教學不考試、不懲罰）
+const DAILY_TASKS=[
+  {id:"login", t:"每天登入一次",   goal:1,  k:"coins", n:10,  auto:true},
+  {id:"words", t:"學對 10 個單字",  goal:10, k:"stamp", n:50},
+  {id:"soups", t:"煮 3 鍋湯",       goal:3,  k:"gem",   n:1},
+  {id:"care",  t:"照顧寶貝 3 次",   goal:3,  k:"coins", n:15}
+];
+function ymd(d){ return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+// 每天第一次進來：連續就 streak+1、斷了歸1、滿7輪回1；回傳當日任務狀態
+function rollDaily(prev){
+  prev = prev || {};
+  const t = today();
+  if(prev.date===t){ if(!prev.prog) prev.prog={}; if(!prev.claimed) prev.claimed={}; return prev; }
+  const y=new Date(); y.setDate(y.getDate()-1);
+  let streak = (prev.date===ymd(y)) ? ((prev.streak||0)+1) : 1;
+  if(streak>7) streak=1;
+  return {date:t, streak:streak, streakClaimed:false, prog:{}, claimed:{}};
+}
+function regenStam(){
+  if(typeof S.stamina!=="number"){ S.stamina=100; S.stamTs=now(); return; }
+  if(S.stamina>=STAM_MAX){ S.stamTs=now(); return; }
+  const g=Math.floor((now()-(S.stamTs||now()))/(STAM_REGEN_MIN*60000));
+  if(g>0){ S.stamina=Math.min(STAM_MAX,S.stamina+g); S.stamTs=(S.stamTs||now())+g*STAM_REGEN_MIN*60000; }
+}
+function addCur(k,n){
+  if(k==="coins") S.coins+=n;
+  else if(k==="stam") S.stamina=Math.min(STAM_MAX,(S.stamina||0)+n);
+  else if(k==="gem") S.gem=(S.gem||0)+n;
+  else if(k==="stamp") S.stamp=(S.stamp||0)+n;
+}
+function dqProg(id){ if(id==="login") return 1; return (S.dailyq&&S.dailyq.prog&&S.dailyq.prog[id])||0; }
+function dqDone(t){ return dqProg(t.id)>=t.goal; }
+function dqClaimed(id){ return !!(S.dailyq&&S.dailyq.claimed&&S.dailyq.claimed[id]); }
+function bumpDaily(id,amt){ if(!S||!S.dailyq) return; if(!S.dailyq.prog) S.dailyq.prog={}; S.dailyq.prog[id]=(S.dailyq.prog[id]||0)+(amt||1); updateDailyDot(); }
+function dailyClaimableCount(){ let c=0; if(S&&S.dailyq&&!S.dailyq.streakClaimed) c++; if(S&&S.dailyq) DAILY_TASKS.forEach(t=>{ if(dqDone(t)&&!dqClaimed(t.id)) c++; }); return c; }
+function updateDailyDot(){ const d=document.getElementById("dailyDot"); if(d) d.classList.toggle("hidden", dailyClaimableCount()<=0); }
+function claimStreak(){
+  if(!S.dailyq||S.dailyq.streakClaimed) return;
+  const r=LOGIN_REWARDS[(((S.dailyq.streak||1)-1)%7)]; addCur(r.k,r.n); S.dailyq.streakClaimed=true;
+  save(); toast("每日獎勵 "+CUR_IC[r.k]+"+"+r.n); openDaily(); render();
+}
+function claimTask(id){
+  const t=DAILY_TASKS.find(x=>x.id===id); if(!t||!dqDone(t)||dqClaimed(id)) return;
+  if(!S.dailyq.claimed) S.dailyq.claimed={}; S.dailyq.claimed[id]=true; addCur(t.k,t.n);
+  save(); toast("任務完成 "+CUR_IC[t.k]+"+"+t.n); openDaily(); render();
+}
+function openDaily(){
+  const ex=document.getElementById("dailyModal"); if(ex) ex.remove();
+  S.dailyq=rollDaily(S.dailyq);
+  const streak=(S.dailyq.streak||1), cur=(((streak-1)%7)+1);
+  const boxes=LOGIN_REWARDS.map((r,i)=>{
+    const day=i+1, isToday=(day===cur), passed=(day<cur)||(isToday&&S.dailyq.streakClaimed);
+    return `<div style="flex:1;min-width:52px;text-align:center;border:2px solid ${isToday?'#5b8def':'#e6ebf5'};background:${passed?'#eafff1':(isToday?'#fff8e0':'#f7f9ff')};border-radius:12px;padding:6px 2px;opacity:${(day<cur&&!passed)?.55:1}">
+      <div style="font-size:11px;font-weight:800;color:#8a8aa0">第${day}天</div>
+      <div style="font-size:22px;line-height:1.1">${CUR_IC[r.k]}</div>
+      <div style="font-size:12px;font-weight:900;color:#3a3a55">x${r.n}</div></div>`;
+  }).join("");
+  const claimBtn = S.dailyq.streakClaimed
+    ? `<button class="btn" disabled style="background:#e7edf6;color:#8a8aa0;box-shadow:none;margin-top:8px">今天已領取 ✓</button>`
+    : `<button class="btn" style="margin-top:8px" onclick="claimStreak()">領取第 ${cur} 天獎勵</button>`;
+  const tasks=DAILY_TASKS.map(t=>{
+    const prog=Math.min(dqProg(t.id),t.goal), done=dqDone(t), claimed=dqClaimed(t.id), pct=Math.round(prog/t.goal*100);
+    const right = claimed
+      ? `<span style="color:#8a8aa0;font-weight:800;font-size:13px">已領取 ✓</span>`
+      : (done
+        ? `<button onclick="claimTask('${t.id}')" style="background:#39d353;color:#fff;border:none;border-radius:10px;padding:6px 15px;font-weight:900;font-size:13px;cursor:pointer">領取</button>`
+        : `<span style="color:#aab0c4;font-weight:800;font-size:13px">${CUR_IC[t.k]}${t.n}</span>`);
+    return `<div style="background:#f7f9ff;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:14px;color:#3a3a55">${t.t}</b>${right}</div>
+      <div style="height:8px;background:#e3e9f2;border-radius:999px;overflow:hidden;margin-top:6px"><i style="display:block;height:100%;width:${pct}%;background:${done?'#39d353':'#ffcf3f'};transition:width .4s"></i></div>
+      <div style="font-size:11px;color:#8a8aa0;font-weight:700;margin-top:2px">${prog}/${t.goal}</div></div>`;
+  }).join("");
+  const m=document.createElement("div"); m.className="modal"; m.id="dailyModal";
+  m.innerHTML=`<div class="sheet"><h2>📅 每日任務</h2><div class="hint">和寶貝一起，每天完成一點點</div>
+    <div style="font-weight:900;font-size:14px;color:#4a63d6;margin-bottom:6px">連續登入獎勵 · 第 ${cur} 天</div>
+    <div style="display:flex;gap:5px;margin-bottom:2px">${boxes}</div>
+    ${claimBtn}
+    <div style="font-weight:900;font-size:14px;color:#4a63d6;margin:14px 0 6px">今日任務</div>
+    ${tasks}
+    <button class="btn" style="background:#eef1ff;color:#4a63d6;box-shadow:none;margin-top:2px" onclick="document.getElementById('dailyModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click",e=>{ if(e.target===m) m.remove(); });
+}
+
 bootstrap();
 </script>
 </body>
