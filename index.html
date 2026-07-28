@@ -300,6 +300,7 @@
       <button class="gear" onclick="openCollection()">🐾</button>
       <button class="gear" onclick="openBuild()">🏗️</button>
       <button class="gear" onclick="openBingo()">🎱</button>
+      <button class="gear" onclick="openThemePacks()">🎯</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -1197,6 +1198,35 @@ function openDex(){
   });
   document.getElementById("dexProg").textContent = learned+"/"+list.length;
   openSheet("dexWrap");
+}
+/* 🎯 主題單字活動：把一個主題的單字全學會→領限定獎勵（沒時限、不逼小孩） */
+function openThemePacks(){
+  const seen=new Set(), list=[]; getWords(S.grades).forEach(w=>{ if(!seen.has(w.en)){seen.add(w.en);list.push(w);} });
+  const byTheme={}; list.forEach(w=>{ const t=w.theme||"其他"; (byTheme[t]=byTheme[t]||[]).push(w); });
+  const claimed=S.themeClaimed||[];
+  const rows=Object.keys(byTheme).map(t=>{
+    const arr=byTheme[t], done=arr.filter(w=>(S.wordStats[w.en]||0)>=MASTER_N).length;
+    const pct=Math.round(done/arr.length*100), full=done>=arr.length, got=claimed.indexOf(t)>=0;
+    const right = full?(got?'<span style="color:#39a35a;font-weight:900">✓ 已領</span>':`<button class="linkbtn" style="color:#fff;background:#e0a24a;border-radius:12px;width:auto;padding:6px 12px;margin:0" onclick="claimTheme('${t}')">🎁 領獎</button>`):`<span style="font-size:12px;color:#8a7a5a">${done}/${arr.length}</span>`;
+    return `<div style="padding:9px 10px;border-radius:14px;margin-bottom:8px;background:${full?'#eaf7ee':'#fff6e6'}">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>🏷️ ${t}</b>${right}</div>
+      <div style="height:8px;background:#eadcc0;border-radius:6px;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${pct}%;background:#7bc67f"></i></div></div>`;
+  }).join("");
+  const m=document.createElement("div"); m.className="modal"; m.id="themeModal";
+  m.innerHTML=`<div class="sheet"><h2>🎯 主題單字活動</h2>
+    <div class="hint">把一個主題的單字全部學會（各熟練 ${MASTER_N} 次）→ 領限定獎勵！每天學一點慢慢收集，沒時限、不逼你。</div>
+    <div style="max-height:52vh;overflow:auto;margin-top:8px">${rows}</div>
+    <button class="btn" onclick="document.getElementById('themeModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+function claimTheme(t){
+  if(!Array.isArray(S.themeClaimed))S.themeClaimed=[];
+  if(S.themeClaimed.indexOf(t)>=0)return;
+  const seen=new Set(), arr=[]; getWords(S.grades).forEach(w=>{ if((w.theme||"其他")===t && !seen.has(w.en)){seen.add(w.en);arr.push(w);} });
+  if(!arr.length || arr.some(w=>(S.wordStats[w.en]||0)<MASTER_N)){ toast("這個主題還沒全部學會喔"); return; }
+  S.themeClaimed.push(t); S.coins+=30; S.stamp=(S.stamp||0)+3; S.gem=(S.gem||0)+1; save(); render();
+  const md=document.getElementById("themeModal"); if(md){ md.remove(); openThemePacks(); }
+  toast("🎉 主題「"+t+"」全學會！🪙+30 🔖+3 💎+1");
 }
 
 /* 🏙️ 城市闖關：對的道具 + 答對單字才能過關 */
