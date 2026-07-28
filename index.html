@@ -1566,14 +1566,15 @@ function openCollection(){
   m.onclick=(e)=>{ if(e.target===m) m.remove(); };
 }
 /* 🏠 每隻精靈獨立的房間：打扮(戴配件)／餵食(單獨餵)／佈置(擺房間物品) */
-const OUTFITS=[{id:"none",ic:"",name:"不戴"},{id:"hat",ic:"🎩",name:"紳士帽"},{id:"crown",ic:"👑",name:"皇冠"},{id:"bow",ic:"🎀",name:"蝴蝶結"},{id:"cap",ic:"🧢",name:"鴨舌帽"},{id:"glasses",ic:"🕶️",name:"墨鏡"},{id:"flower",ic:"🌸",name:"小花"},{id:"star",ic:"⭐",name:"星星"},{id:"party",ic:"🥳",name:"派對帽"}];
-const ROOMITEMS=[{id:"rug",ic:"🟫",name:"地毯"},{id:"plant",ic:"🪴",name:"盆栽"},{id:"sofa",ic:"🛋️",name:"沙發"},{id:"pic",ic:"🖼️",name:"掛畫"},{id:"bed",ic:"🛏️",name:"小床"},{id:"toy",ic:"🧸",name:"玩偶"},{id:"cake",ic:"🎂",name:"蛋糕"},{id:"ball",ic:"⚽",name:"皮球"},{id:"lamp",ic:"🏮",name:"燈籠"}];
+const OUTFITS=[{id:"none",ic:"",name:"不戴",en:""},{id:"hat",ic:"🎩",name:"紳士帽",en:"hat"},{id:"crown",ic:"👑",name:"皇冠",en:"crown"},{id:"bow",ic:"🎀",name:"蝴蝶結",en:"ribbon"},{id:"cap",ic:"🧢",name:"鴨舌帽",en:"cap"},{id:"glasses",ic:"🕶️",name:"墨鏡",en:"glasses"},{id:"flower",ic:"🌸",name:"小花",en:"flower"},{id:"star",ic:"⭐",name:"星星",en:"star"},{id:"party",ic:"🥳",name:"派對帽",en:"party hat"}];
+const ROOMITEMS=[{id:"rug",ic:"🟫",name:"地毯",en:"rug"},{id:"plant",ic:"🪴",name:"盆栽",en:"plant"},{id:"sofa",ic:"🛋️",name:"沙發",en:"sofa"},{id:"pic",ic:"🖼️",name:"掛畫",en:"picture"},{id:"bed",ic:"🛏️",name:"小床",en:"bed"},{id:"toy",ic:"🧸",name:"玩偶",en:"teddy"},{id:"cake",ic:"🎂",name:"蛋糕",en:"cake"},{id:"ball",ic:"⚽",name:"皮球",en:"ball"},{id:"lamp",ic:"🏮",name:"燈籠",en:"lantern"}];
+function roomItemById(id){ return ROOMITEMS.find(x=>x.id===id); }
 /* 🔖 集章卡商店：用印章換限定配件/道具（印章＝蓋設施/每日任務/學習領到，不課金不看廣告） */
 const STAMP_ITEMS=[
-  {id:"wizard",type:"outfit",ic:"🧙",name:"巫師帽",cost:8},
-  {id:"medal",type:"outfit",ic:"🎖️",name:"勳章",cost:6},
-  {id:"headphone",type:"outfit",ic:"🎧",name:"耳機",cost:6},
-  {id:"sunhat",type:"outfit",ic:"👒",name:"太陽帽",cost:7},
+  {id:"wizard",type:"outfit",ic:"🧙",name:"巫師帽",en:"wizard hat",cost:8},
+  {id:"medal",type:"outfit",ic:"🎖️",name:"勳章",en:"medal",cost:6},
+  {id:"headphone",type:"outfit",ic:"🎧",name:"耳機",en:"headphones",cost:6},
+  {id:"sunhat",type:"outfit",ic:"👒",name:"太陽帽",en:"sun hat",cost:7},
   {id:"foodpack",type:"food",amt:10,name:"食物包 🍎×10",cost:5},
   {id:"gem1",type:"gem",amt:1,name:"鑽石 💎×1",cost:12}
 ];
@@ -1621,7 +1622,7 @@ function renderPetRoom(){
   let body="";
   if(petRoomTab==="dress"){
     body=`<div class="hint">幫 ${nm} 換配件（點一下就戴上）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
-      allOutfits().map(o=>`<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.4">${o.ic||'🚫'}<br>${o.name}</button>`).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
+      allOutfits().map(o=>`<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.35">${o.ic||'🚫'}<br>${o.name}${o.en?'<br><span style="font-size:9px;color:#3a5a7a">'+o.en+' 🔊</span>':''}</button>`).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
   } else if(petRoomTab==="feed"){
     body=`<div class="hint">單獨餵 ${nm}，肚子＋20、也更親 ❤️＋1</div>
       <div style="font-size:13px;margin:6px 0">🍖肚子 ${p.care.hunger}/100 · ❤️親密 ${p.bond||0} · 庫存 🍎${S.food}</div>
@@ -1629,15 +1630,15 @@ function renderPetRoom(){
       ${S.food<1?'<div class="hint" style="margin-top:6px">沒食物了，🛒商店買或等設施🧺生產</div>':''}`;
   } else {
     body=`<div class="hint">佈置 ${nm} 的房間（點物品放進／收起）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
-      ROOMITEMS.map(r=>{const on=(p.room||[]).indexOf(r.id)>=0;return `<button onclick="togglePetRoomItem(${i},'${r.id}')" style="border:2px solid ${on?'#3a8a5a':'#e6d5b8'};background:${on?'#e9f7ee':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.4">${r.ic}<br>${r.name}</button>`;}).join("")+`</div>`;
+      ROOMITEMS.map(r=>{const on=(p.room||[]).indexOf(r.id)>=0;return `<button onclick="togglePetRoomItem(${i},'${r.id}')" style="border:2px solid ${on?'#3a8a5a':'#e6d5b8'};background:${on?'#e9f7ee':'#fff'};border-radius:12px;padding:6px 9px;font-size:12px;cursor:pointer;line-height:1.35">${r.ic}<br>${r.name}<br><span style="font-size:9px;color:#3a5a7a">${r.en} 🔊</span></button>`;}).join("")+`</div>`;
   }
   m.innerHTML=`<div class="sheet"><h2>🏠 ${nm} 的房間</h2>${preview}<div style="margin:2px 0">${tabs}</div>${body}
     <button class="btn" onclick="document.getElementById('petRoomModal').remove()">關閉</button></div>`;
   if(first){ document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); }; }
 }
-function setPetOutfit(i,oid){ if(!S.pets[i])return; S.pets[i].outfit=oid; save(); render(); renderPetRoom(); }
+function setPetOutfit(i,oid){ if(!S.pets[i])return; S.pets[i].outfit=oid; const o=allOutfits().find(x=>x.id===oid); if(o&&o.en){ speak(o.en); markLearned(o.en); } save(); render(); renderPetRoom(); }
 function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;} S.food-=1; p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save(); render(); renderPetRoom(); toast("🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️"); }
-function togglePetRoomItem(i,did){ const p=S.pets[i]; if(!p)return; if(!Array.isArray(p.room))p.room=[]; const k=p.room.indexOf(did); if(k>=0)p.room.splice(k,1); else p.room.push(did); save(); renderPetRoom(); }
+function togglePetRoomItem(i,did){ const p=S.pets[i]; if(!p)return; if(!Array.isArray(p.room))p.room=[]; const k=p.room.indexOf(did); if(k>=0)p.room.splice(k,1); else { p.room.push(did); const r=roomItemById(did); if(r&&r.en){ speak(r.en); markLearned(r.en); } } save(); renderPetRoom(); }
 function pickActive(i){ setActive(i); const md=document.getElementById("collectionModal"); if(md) md.remove(); openCollection(); toast("換 "+speciesName(P().species)+" 當主寵 💛"); }
 function releasePet(i){
   if(S.pets.length<=1){ toast("至少要留 1 隻寶貝喔 🥺"); return; }
