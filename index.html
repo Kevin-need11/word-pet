@@ -1531,31 +1531,56 @@ function openSoup(){
 }
 let cookState=null;
 function cookStart(rid){ const r=RECIPES.find(x=>x.id===rid); if(!r) return; const sm=document.getElementById("soupModal"); if(sm) sm.remove(); cookState={r,step:0}; cookRender(); }
+function pick3(target){ const others=Object.keys(ING).filter(i=>i!==target); shuffle(others); return shuffle([target,others[0],others[1]]); }
 function cookRender(){
   const {r,step}=cookState; let m=document.getElementById("cookModal"); const first=!m;
   if(first){ m=document.createElement("div"); m.className="modal"; m.id="cookModal"; }
   const target=r.ing[step];
-  const others=Object.keys(ING).filter(i=>!r.ing.includes(i)); shuffle(others);
-  const opts=shuffle([target,others[0],others[1]]);
-  const done=r.ing.slice(0,step).map(i=>`<img src="${cookImg(i)}" style="width:30px;height:30px;object-fit:contain">`).join("");
+  // 🎲 每一步隨機換題型：認中文/聽音/看英文/拼首字母 → 不無聊、多練幾種能力
+  const mode=["zh","listen","en","spell"][Math.floor(Math.random()*4)];
+  cookState.q={mode, target};
+  const done=r.ing.slice(0,step).map(i=>`<img src="${cookImg(i)}" style="width:28px;height:28px;object-fit:contain">`).join("");
+  const combo=cookState.combo||0;
+  const comboBadge = combo>=2? `<div style="color:#e0913a;font-weight:900;font-size:15px;margin-bottom:2px">🔥 連對 ${combo}！</div>`:"";
+  let q="", opts="";
+  if(mode==="spell"){
+    const correctL=String(target[0]).toUpperCase();
+    const wrongs=shuffle("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").filter(l=>l!==correctL)).slice(0,2);
+    cookState.q.correct=correctL;
+    q=`<div class="hint">🔤 這個食材的英文，開頭是哪個字母？</div>
+       <img src="${cookImg(target)}" style="width:70px;height:70px;object-fit:contain" onerror="this.outerHTML='<div style=font-size:44px>🥘</div>'">
+       <div class="zh" style="font-size:17px">${ING[target]}</div>
+       <button class="speak" onclick="speak('${target}')">🔊 唸唸看</button>`;
+    opts=shuffle([correctL,...wrongs]).map(l=>`<button class="cookopt" onclick="cookTap('${l}')" style="background:#eef4ff;border:2px solid #b9cdf0;border-radius:16px;width:64px;height:64px;font-size:30px;font-weight:900;color:#3a5a7a;cursor:pointer">${l}</button>`).join("");
+  } else {
+    cookState.q.correct=target;
+    if(mode==="zh") q=`<div class="zh" style="font-size:22px">${ING[target]}</div><div class="hint">找出「${ING[target]}」、點它！</div>`;
+    else if(mode==="en") q=`<div style="font-size:26px;font-weight:900;color:#3a5a7a">${target}</div><div class="hint">👀 找出「${target}」是哪個、點它！</div>`;
+    else q=`<div class="hint">🔊 聽聽看是哪一個？點對的！</div><button class="speak" onclick="speak('${target}')">🔊 再聽一次</button>`;
+    opts=pick3(target).map(i=>`<button class="cookopt" onclick="cookTap('${i}')" style="background:#fff6e6;border:2px solid #e6c98a;border-radius:16px;padding:8px;cursor:pointer"><img src="${cookImg(i)}" style="width:64px;height:64px;object-fit:contain" onerror="this.parentNode.textContent='${ING[i]}'"></button>`).join("");
+  }
   m.innerHTML=`<div class="sheet"><h2>🍲 煮 ${r.name}</h2>
-    <div class="hint">加入第 ${step+1}/${r.ing.length} 種食材：找出下面這個、點它！</div>
-    <div style="margin:6px 0;font-size:15px">已加入：${done||'（還沒）'}</div>
-    <div class="zh" style="font-size:20px">${ING[target]}</div>
-    <div style="font-size:24px;font-weight:900;color:#3a5a7a">${target}</div>
-    <button class="speak" onclick="speak('${target}')">🔊 唸唸看</button>
-    <div style="display:flex;gap:12px;justify-content:center;margin:12px 0;flex-wrap:wrap">
-      ${opts.map(i=>`<button class="cookopt" onclick="cookTap('${i}')" style="background:#fff6e6;border:2px solid #e6c98a;border-radius:16px;padding:8px;cursor:pointer"><img src="${cookImg(i)}" style="width:64px;height:64px;object-fit:contain" onerror="this.parentNode.textContent='${ING[i]}'"></button>`).join("")}
-    </div>
+    ${comboBadge}
+    <div class="hint" style="margin-bottom:4px">第 ${step+1}/${r.ing.length} 種 · 已加入：${done||"（還沒）"}</div>
+    ${q}
+    <div style="display:flex;gap:12px;justify-content:center;margin:12px 0;flex-wrap:wrap">${opts}</div>
     <button class="linkbtn" onclick="document.getElementById('cookModal').remove()">取消</button></div>`;
   if(first) document.body.appendChild(m);
-  setTimeout(()=>speak(target),250);
+  setTimeout(()=>speak(target),250);   // 每題都唸正確英文＝順便學發音
 }
-function cookTap(id){
-  const {r,step}=cookState; const target=r.ing[step];
-  if(id!==target){ toast("再看看～這是「"+ING[target]+" "+target+"」"); speak(target); return; }
-  markLearned(target); speak(target); cookState.step++;
-  if(cookState.step>=r.ing.length) cookDone(r); else cookRender();
+function cookTap(val){
+  const q=cookState.q, target=q.target;
+  if(String(val)!==String(q.correct)){
+    cookState.combo=0;
+    if(q.mode==="spell") toast("再想想～「"+ING[target]+" "+target+"」開頭是 "+q.correct);
+    else toast("再看看～這是「"+ING[target]+" "+target+"」");
+    speak(target); return;   // 同一題留著、鼓勵再試
+  }
+  markLearned(target); speak(target);
+  cookState.combo=(cookState.combo||0)+1;
+  if(cookState.combo>0 && cookState.combo%3===0){ S.coins+=2; save(); toast("🔥 連對 "+cookState.combo+"！加碼 🪙+2"); }
+  cookState.step++;
+  if(cookState.step>=cookState.r.ing.length) cookDone(cookState.r); else cookRender();
 }
 function cookDone(r){
   const m=document.getElementById("cookModal"); if(m) m.remove();
