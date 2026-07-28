@@ -781,7 +781,7 @@ function homeActive(){ const p=P(); return p && !p.away && !editMode; }
 function rotateChore(){ let n; do{ n=Math.floor(Math.random()*CHORES.length); }while(CHORES.length>1 && n===chore.idx); chore.idx=n; chore.until=now()+(11000+Math.random()*9000); }
 function coinPop(n){ const box=document.getElementById("pets"); if(!box) return; const f=document.createElement("div"); f.className="coinfloat"; f.textContent="🪙+"+n; box.appendChild(f); setTimeout(()=>{ if(f.parentNode) f.parentNode.removeChild(f); },1000); }
 const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:48},{x:63,y:50},{x:22,y:50},{x:78,y:52},{x:50,y:66}];
-let petPos=[], petChore=[], walkTimer=null;
+let petPos=[], petChore=[], petFacWork=[], walkTimer=null;   // petFacWork[i]=寵物正在工作的設施(進駐設施做專屬動作)，null=一般家事
 const WALK_X=[18,82], WALK_Y=[44,72];   // 走動範圍(留邊避免超出場景)
 function ensurePetState(){
   S.pets.forEach((p,i)=>{
@@ -800,7 +800,9 @@ function renderPets(){
     el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
     let tag = "";
     if(p.away){ tag = `<div class="awaytag"><span class="atimer" id="atimer-${i}"></span><button class="aclaim hidden" id="aclaim-${i}" onclick="event.stopPropagation();claimAway(${i})">🎁 領取</button></div>`; }
-    else if(!editMode){ const ch=CHORES[petChore[i]]; tag = `<div class="choreact">${ch.ic}</div>`+(active?`<div class="chore">${ch.t}…</div>`:""); }
+    else if(!editMode){ const fw=petFacWork[i]; const ch=CHORES[petChore[i]]||CHORES[0];
+      const wic = fw? fw.f.ic : ch.ic, wt = fw? ("在"+fw.f.name) : ch.t;
+      tag = `<div class="choreact">${wic}</div>`+(active?`<div class="chore">${wt}…</div>`:""); }
     el.innerHTML = `<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?92:54}px;"><img src="${stageImg(p.species, st)}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.key==='egg'?st.emoji:speciesEmoji(p.species)}'"></div><div class="psh" style="width:${active?92:54}px"></div>${tag}`;
     el.onclick=()=>{ if(!active) setActive(i); };
     box.appendChild(el);
@@ -812,18 +814,29 @@ function walkStep(){
   if(editMode) return;
   const box=document.getElementById("pets"); if(!box) return;
   ensurePetState();
+  // 🏗️ 建好的設施＝寵物的工作點：多數時間走到設施旁做該設施的專屬動作(進駐設施)
+  const facs=(S.facilities||[]).map((id,idx)=>({f:facById(id),pos:FAC_SLOTS[idx%FAC_SLOTS.length]})).filter(x=>x.f);
   S.pets.forEach((p,i)=>{
     if(p.away) return;
     const el=document.getElementById("ps-"+i); if(!el) return;
-    const nx=WALK_X[0]+Math.random()*(WALK_X[1]-WALK_X[0]);
-    const ny=WALK_Y[0]+Math.random()*(WALK_Y[1]-WALK_Y[0]);
+    let nx,ny,fac=null;
+    if(facs.length && Math.random()<0.78){          // 多數時間進駐設施工作，偶爾自由走動
+      fac=facs[Math.floor(Math.random()*facs.length)];
+      nx=Math.max(8,Math.min(92, fac.pos.x + (Math.random()*10-5)));
+      ny=Math.max(WALK_Y[0],Math.min(WALK_Y[1], fac.pos.y + 10));   // 站在設施下方
+    }else{
+      nx=WALK_X[0]+Math.random()*(WALK_X[1]-WALK_X[0]);
+      ny=WALK_Y[0]+Math.random()*(WALK_Y[1]-WALK_Y[0]);
+    }
     const flip = nx < petPos[i].x;
     petPos[i]={x:+nx.toFixed(1), y:+ny.toFixed(1), fx:flip};
     el.style.left=petPos[i].x+"%"; el.style.top=petPos[i].y+"%";
     el.classList.toggle("flip",flip);
-    petChore[i]=Math.floor(Math.random()*CHORES.length);
-    const ca=el.querySelector(".choreact"); if(ca) ca.textContent=CHORES[petChore[i]].ic;
-    const cb=el.querySelector(".chore"); if(cb) cb.textContent=CHORES[petChore[i]].t+"…";
+    petFacWork[i]=fac;
+    const ca=el.querySelector(".choreact"), cb=el.querySelector(".chore");
+    if(fac){ if(ca) ca.textContent=fac.f.ic; if(cb) cb.textContent="在"+fac.f.name+"…"; }
+    else{ petChore[i]=Math.floor(Math.random()*CHORES.length);
+      if(ca) ca.textContent=CHORES[petChore[i]].ic; if(cb) cb.textContent=CHORES[petChore[i]].t+"…"; }
   });
   // 🍲 偶爾派一隻寶貝到湯鍋邊工作(走過去煮湯、冒煙)
   if(S.theme==="kitchen" && !editMode && Math.random()<0.32){
@@ -831,7 +844,7 @@ function walkStep(){
     if(idxs.length){ const i=idxs[Math.floor(Math.random()*idxs.length)]; const el=document.getElementById("ps-"+i);
       if(el){ petPos[i]={x:44+Math.random()*12, y:30+Math.random()*6, fx:Math.random()<0.5};
         el.style.left=petPos[i].x+"%"; el.style.top=petPos[i].y+"%"; el.classList.toggle("flip",petPos[i].fx);
-        petChore[i]=1;   // 煮湯中🍲
+        petChore[i]=1; petFacWork[i]=null;   // 煮湯中🍲
         const ca=el.querySelector(".choreact"); if(ca) ca.textContent=CHORES[1].ic;
         const cb=el.querySelector(".chore"); if(cb) cb.textContent=CHORES[1].t+"…";
         const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; st.style.top="25%"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
