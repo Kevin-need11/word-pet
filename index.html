@@ -130,6 +130,7 @@
   .visitor{position:absolute;top:112px;left:50%;transform:translateX(-50%);z-index:6;background:#7bd389;color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #4fa96a;animation:pigbob 1s ease-in-out infinite;}
   .harvest{position:absolute;top:112px;left:12px;z-index:6;background:#ff9d6b;color:#5b2a00;border:none;border-radius:999px;padding:7px 13px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9743a;animation:pigbob 1s ease-in-out infinite;}
   .gift{position:absolute;top:54%;left:50%;transform:translateX(-50%);z-index:6;background:#ff87b8;color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d95a8a;animation:pigbob .9s ease-in-out infinite;}
+  .wsprite{position:absolute;top:112px;right:12px;z-index:6;background:#b57bd3;color:#fff;border:none;border-radius:999px;padding:7px 13px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #8f57ad;animation:pigbob 1s ease-in-out infinite;}
   .visitor:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #4fa96a;}
   @keyframes pigbob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-5px);}}
   .themecard{border:2px solid #e3e7f5;border-radius:12px;overflow:hidden;cursor:pointer;}
@@ -322,6 +323,7 @@
       <button class="harvest hidden" id="harvestBtn" onclick="collectHarvest()">🧺 <span id="harvestN">0</span> 收成</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
       <button class="gift hidden" id="giftBtn" onclick="collectGift()">🎁 驚喜禮物</button>
+      <button class="wsprite hidden" id="wspriteBtn" onclick="openWordSprite()">🧚 單字精靈</button>
       <div class="world" id="world">
         <div class="facs" id="facs"></div>
         <div class="decor" id="decor"></div>
@@ -789,6 +791,9 @@ function render(){
   const gb=document.getElementById("giftBtn");
   if(gb){ if(S.gift && now()>=S.gift.until){ S.gift=null; }
     if(S.gift && !editMode){ gb.classList.remove("hidden"); } else gb.classList.add("hidden"); }
+  const wsb=document.getElementById("wspriteBtn");
+  if(wsb){ if(S.wsprite && now()>=S.wsprite.until){ S.wsprite=null; }
+    if(S.wsprite && !editMode){ wsb.classList.remove("hidden"); } else wsb.classList.add("hidden"); }
   captureDex(); assignStations(); renderPets(); renderDecor(); renderFacilities(); renderAway(); applyZoom();
   var _pb=document.getElementById("potBtn"); if(_pb) _pb.classList.toggle("hidden", S.theme!=="kitchen" || editMode);
 }
@@ -831,6 +836,25 @@ function collectGift(){
   const r=rolls[Math.floor(Math.random()*rolls.length)];
   if(r[0]==="coins")S.coins+=r[1]; else if(r[0]==="food")S.food+=r[1]; else if(r[0]==="stamp")S.stamp=(S.stamp||0)+r[1]; else if(r[0]==="gem")S.gem=(S.gem||0)+r[1];
   S.gift=null; save(); render(); toast("🎁 驚喜禮物：打開是 "+r[2]+"！");
+}
+/* 🧚 隨機單字精靈：蹦出→點了答一題→領獎（快問快答、微學習） */
+function spawnWordSprite(){ const q=pickWord(); if(!q||!q.en)return; S.wsprite={until:now()+90000, en:q.en, zh:q.zh}; }
+function openWordSprite(){
+  if(!S.wsprite) return; const en=S.wsprite.en, zh=S.wsprite.zh;
+  const opts=[en,...distractors(en,3)]; shuffle(opts);
+  const m=document.createElement("div"); m.className="modal"; m.id="wspriteModal";
+  m.innerHTML=`<div class="sheet"><h2>🧚 單字精靈</h2><div class="hint">答對就送你獎勵 🪙</div>
+    <div class="quiz"><div class="zh">${zh}</div><button class="speak" onclick="speak('${en}')">🔊 唸唸看</button><div class="opts" id="wsopts"></div></div>
+    <button class="linkbtn" onclick="document.getElementById('wspriteModal').remove()">下次再說</button></div>`;
+  document.body.appendChild(m);
+  const box=document.getElementById("wsopts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w; b.onclick=()=>wspriteAnswer(w,en,b); box.appendChild(b); });
+  setTimeout(()=>speak(en),250);
+}
+function wspriteAnswer(w,en,b){
+  if(w!==en){ if(b)b.classList.add("wrong"); speak(en); toast("再想想～答案是 "+en); return; }
+  markLearned(en); speak(en); S.coins+=8; S.wsprite=null; save(); render();
+  const m=document.getElementById("wspriteModal"); if(m) m.remove(); toast("🧚 答對了！🪙+8");
 }
 /* 🎱 單字賓果：5×5 單字盤，看中文點對的英文，湊一條線(橫/直/斜)＝BINGO 領獎 */
 let bingoState=null;
@@ -1060,6 +1084,8 @@ function onTick(){ decayCare(); refreshAway();
   if(homeActive() && !S.visitor && Math.random()<0.0035){ spawnVisitor(); }
   // 🎁 不定時驚喜禮物：偶爾在場景冒出禮物箱，點了領隨機獎勵（2分鐘內領）
   if(homeActive() && !S.gift && Math.random()<0.0025){ S.gift={until: now()+120000}; }
+  // 🧚 隨機單字精靈：偶爾蹦出，點了答一題快問快答領獎
+  if(homeActive() && !S.wsprite && Math.random()<0.003){ spawnWordSprite(); }
   // 每分鐘刷新一次整體顯示（care/piggy）
   if(now()%60000 < 1000){ render(); applySky(); }
 }
