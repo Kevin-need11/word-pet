@@ -1714,11 +1714,13 @@ function renderPetRoom(){
   let m=document.getElementById("petRoomModal"); const first=!m;
   if(first){ m=document.createElement("div"); m.className="modal"; m.id="petRoomModal"; }
   const st=stageFor(Math.floor(p.xp/XP_PER_LV)+1), nm=speciesName(p.species), oic=outfitIc(p);
-  const roomIcons=(p.room||[]).map(id=>{const r=ROOMITEMS.find(x=>x.id===id);return r?`<span style="font-size:24px">${r.ic}</span>`:"";}).join(" ");
-  const preview=`<div style="position:relative;background:linear-gradient(180deg,#fbeede,#f1dfc2);border-radius:16px;padding:12px;margin:6px 0;min-height:120px">
-    <div style="min-height:26px;font-size:22px">${roomIcons}</div>
-    <div>${oic?`<div style="font-size:24px;margin-bottom:-8px">${oic}</div>`:""}<img src="${stageImg(p.species,st)}" style="width:66px;height:66px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"></div>
-    <div style="font-size:12px;color:#8a7a5a;margin-top:4px">${nm} · ❤️${p.bond||0} · 🍖${p.care.hunger}</div></div>`;
+  // 🏠 立體小房間：壁紙牆＋木地板，家具擺在地板、寵物站房裡(有 assets/scenes/room.png 就鋪上、更細膩)
+  const floorItems=(p.room||[]).map((id,idx)=>{const r=ROOMITEMS.find(x=>x.id===id);if(!r)return"";const x=14+(idx%6)*14.5, y=(idx<6?70:86);return `<span style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:24px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.2))">${r.ic}</span>`;}).join("");
+  const preview=`<div style="position:relative;height:156px;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
+    <img src="assets/scenes/room.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
+    ${floorItems}
+    <div style="position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);text-align:center">${oic?`<div style="font-size:24px;margin-bottom:-8px">${oic}</div>`:""}<img src="${stageImg(p.species,st)}" style="width:74px;height:74px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"></div>
+    <div style="position:absolute;left:8px;bottom:6px;font-size:11px;color:#5a4a2a;background:rgba(255,255,255,.65);border-radius:8px;padding:1px 7px">${nm} · ❤️${p.bond||0} · 🍖${p.care.hunger}</div></div>`;
   const tabs=[["dress","👗打扮"],["feed","🍎餵食"],["deco","🏠佈置"]].map(t=>`<button onclick="petRoomTab='${t[0]}';renderPetRoom()" style="border:none;border-radius:999px;padding:6px 14px;margin:2px;font-weight:900;font-size:13px;cursor:pointer;${petRoomTab===t[0]?'background:#e0a24a;color:#fff':'background:#f0e6d2;color:#8a7a5a'}">${t[1]}</button>`).join("");
   let body="";
   if(petRoomTab==="dress"){
