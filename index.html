@@ -107,7 +107,11 @@
   .decor span.editing{cursor:grab;animation:wiggle .4s ease-in-out infinite;}
   .decor span.editing:active{cursor:grabbing;}
   .facs{position:absolute;inset:0;pointer-events:none;z-index:1;}
-  .facitem{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;line-height:1;user-select:none;animation:facpop .35s ease-out both;}
+  .facitem{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;line-height:1;user-select:none;animation:facpop .35s ease-out both;pointer-events:auto;cursor:pointer;}
+  .facitem:active{filter:brightness(1.12);}
+  .facitem .fi{transition:transform .15s;}
+  .facitem:active .fi{transform:scale(1.15);}
+  .scene.editing .facs{pointer-events:none;}
   .facitem .fi{font-size:38px;filter:drop-shadow(0 4px 4px rgba(60,90,60,.28));}
   .facitem .fn{margin-top:1px;font-size:9px;font-weight:900;color:#5a4a2a;background:rgba(255,255,255,.72);border-radius:8px;padding:0 5px;white-space:nowrap;}
   @keyframes facpop{0%{transform:translate(-50%,-50%) scale(0);}70%{transform:translate(-50%,-50%) scale(1.18);}100%{transform:translate(-50%,-50%) scale(1);}}
@@ -1599,8 +1603,28 @@ function renderFacilities(){
     const el=document.createElement("div"); el.className="facitem";
     el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
     el.innerHTML=`<div class="fi">${f.ic}</div><div class="fn">${f.name}</div>`;
+    el.onclick=(e)=>{ e.stopPropagation(); facAction(id); };
     box.appendChild(el);
   });
+}
+/* 設施點了有作用：接現有功能（料理/任務/孵蛋/收益/佈置/休息） */
+function facHatchEgg(){
+  if(S.coins < EGG_COST){ toast("金幣不夠（需 🪙"+EGG_COST+" 找新寶貝）"); return; }
+  S.coins -= EGG_COST; S.pets.push(newPet()); S.active = S.pets.length-1; save(); render();
+  toast("找到新寶貝！養大看看孵出哪隻 🥚");
+}
+function facAction(id){
+  if(editMode) return;
+  const f=facById(id); if(!f) return;
+  if(id==='f_gacha' || id==='s_observ'){ facHatchEgg(); return; }        // 扭蛋機/天文台→抽新寵物
+  if(id==='f_trade'){ if(piggyAvail()>0) collectPiggy(); else toast("🐘 貿易所：暫時沒有可收的收益，晚點再來"); return; }
+  if(id==='s_furni'){ toggleEdit(); return; }                            // 家具店→開佈置
+  if(id==='s_show'){ toast("🏆 展示櫃：料理售價加成生效中（被動）"); return; }
+  if(id==='s_newcat'){ openCollection(); return; }                       // 新夥伴的家→寵物收藏
+  if(f.cat==='cook' || id==='f_pond'){ openSoup(); return; }             // 烹飪站/魚塘→料理學單字
+  if(f.cat==='func'){ openDaily(); return; }                             // 公告欄→每日任務
+  if(f.cat==='rest'){ const p=P(); if(p && !p.away){ p.care.mood=Math.min(100,p.care.mood+15); save(); render(); toast("😴 寵物在「"+f.name+"」休息，心情 +15"); } else toast("寵物出門了，等牠回來 🕐"); return; }
+  if(f.cat==='spec'){ openCollection(); return; }
 }
 /* 🗺️ 地圖縮放＋自動擴大：設施越多、看全圖自動縮小讓全部進畫面；＋/－手動；佈置模式強制 1 倍免拖曳座標跑掉 */
 function autoZoom(){ const n=facCount(); return n<=9?1 : n<=15?0.82 : n<=21?0.70 : 0.60; }
