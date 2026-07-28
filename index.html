@@ -101,6 +101,11 @@
   .decor span{position:absolute;font-size:54px;line-height:1;filter:drop-shadow(0 4px 4px rgba(60,90,60,.25));user-select:none;}
   .decor span.editing{cursor:grab;animation:wiggle .4s ease-in-out infinite;}
   .decor span.editing:active{cursor:grabbing;}
+  .facs{position:absolute;inset:0;pointer-events:none;z-index:1;}
+  .facitem{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;line-height:1;user-select:none;animation:facpop .35s ease-out both;}
+  .facitem .fi{font-size:38px;filter:drop-shadow(0 4px 4px rgba(60,90,60,.28));}
+  .facitem .fn{margin-top:1px;font-size:9px;font-weight:900;color:#5a4a2a;background:rgba(255,255,255,.72);border-radius:8px;padding:0 5px;white-space:nowrap;}
+  @keyframes facpop{0%{transform:translate(-50%,-50%) scale(0);}70%{transform:translate(-50%,-50%) scale(1.18);}100%{transform:translate(-50%,-50%) scale(1);}}
   @keyframes wiggle{0%,100%{transform:translate(-50%,-50%) rotate(-4deg);}50%{transform:translate(-50%,-50%) rotate(4deg);}}
   .scene.editing{outline:3px dashed #5b8def;outline-offset:-3px;}
   .scene.editing .decor{z-index:5;}
@@ -276,6 +281,7 @@
       <button class="gear" id="dailyBtn" onclick="openDaily()" style="position:relative">📅<span id="dailyDot" class="hidden" style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;background:#ff4d4d;border-radius:50%;box-shadow:0 0 0 2px #eaf6ff"></span></button>
       <button class="gear" onclick="openDex()">📖</button>
       <button class="gear" onclick="openCollection()">🐾</button>
+      <button class="gear" onclick="openBuild()">🏗️</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -297,6 +303,7 @@
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
+      <div class="facs" id="facs"></div>
       <div class="decor" id="decor"></div>
       <div class="pets" id="pets"></div>
       <div class="petname" id="petName">小龍</div>
@@ -492,6 +499,45 @@ const DECOR_SLOTS = [ // 場景中固定擺放位置
   {l:"10%",b:"12%"},{r:"12%",b:"12%"},{l:"6%",b:"34%"},{r:"7%",b:"34%"},
   {l:"22%",b:"6%"},{r:"24%",b:"6%"},{l:"14%",b:"54%"},{r:"16%",b:"54%"},{l:"46%",b:"4%"}
 ];
+/* 🏗️ 建造設施系統（參考《貓咪與湯》，分4大類、設施有「解鎖鏈」跨類別互相牽制）。
+   用金幣(學習賺的)蓋 → 村莊長大；蓋越多、離線存錢筒上限越大。req=要先蓋哪個設施才解鎖。 */
+const FAC_CATS = [
+  {id:"cook", name:"🍳 烹飪"},
+  {id:"rest", name:"🛋️ 休憩"},
+  {id:"func", name:"⚙️ 功能"},
+  {id:"spec", name:"✨ 特別"}
+];
+const FACILITIES = [
+  // 🍳 烹飪設施＝食材加工站（配單字主題）
+  {id:"c_bake",  cat:"cook", ic:"🥐", name:"烘焙坊",   en:"Bakery",  cost:20,  req:null,       desc:"烤麵包點心，學烘焙單字"},
+  {id:"c_veg",   cat:"cook", ic:"🔪", name:"切菜站",   en:"Veggies", cost:40,  req:"r_garden", desc:"處理蔬菜，學蔬菜單字"},
+  {id:"c_fruit", cat:"cook", ic:"🍓", name:"水果站",   en:"Fruits",  cost:60,  req:"r_orchard",desc:"切水果，學水果單字"},
+  {id:"c_coffee",cat:"cook", ic:"☕", name:"咖啡站",   en:"Coffee",  cost:85,  req:"r_cafe",   desc:"磨咖啡，學飲品單字"},
+  // 🛋️ 休憩設施＝娛樂/裝飾（也是解鎖烹飪站的前置）
+  {id:"r_garden",  cat:"rest", ic:"🌱", name:"小菜園",   en:"Garden",   cost:15, req:null,      desc:"種菜的好地方"},
+  {id:"r_orchard", cat:"rest", ic:"🌳", name:"果園",     en:"Orchard",  cost:35, req:"r_garden",desc:"結滿水果的果園"},
+  {id:"r_swing",   cat:"rest", ic:"🛝", name:"鞦韆",     en:"Swing",    cost:30, req:"c_bake",  desc:"盪鞦韆，好開心"},
+  {id:"r_cafe",    cat:"rest", ic:"🪑", name:"露天座",   en:"Cafe",     cost:55, req:"c_veg",   desc:"悠閒坐著看書"},
+  {id:"r_carousel",cat:"rest", ic:"🎠", name:"旋轉木馬", en:"Carousel", cost:95, req:"r_swing", desc:"轉呀轉超好玩"},
+  // ⚙️ 功能設施＝帶玩法的建築
+  {id:"f_board", cat:"func", ic:"📋", name:"公告欄",   en:"Board",  cost:25,  req:null,      desc:"看每日任務、領獎勵"},
+  {id:"f_pond",  cat:"func", ic:"🎣", name:"魚塘",     en:"Pond",   cost:45,  req:"r_garden",desc:"釣魚放鬆一下"},
+  {id:"f_gacha", cat:"func", ic:"🎰", name:"扭蛋機",   en:"Gacha",  cost:70,  req:"f_board", desc:"扭蛋抽驚喜"},
+  {id:"f_trade", cat:"func", ic:"🐘", name:"貿易所",   en:"Trade",  cost:115, req:"r_cafe",  desc:"跟大象做買賣"},
+  // ✨ 特別設施＝加成/收集新夥伴
+  {id:"s_observ", cat:"spec", ic:"🔭", name:"天文台",     en:"Observatory", cost:60,  req:"f_board",  desc:"尋找新的寶貝夥伴"},
+  {id:"s_furni",  cat:"spec", ic:"🛋️", name:"家具店",     en:"Furniture",   cost:85,  req:"s_observ", desc:"買家具佈置房間"},
+  {id:"s_show",   cat:"spec", ic:"🏆", name:"展示櫃",     en:"Showcase",    cost:120, req:"f_trade",  desc:"料理售價提高(加成)"},
+  {id:"s_newcat", cat:"spec", ic:"🏡", name:"新夥伴的家", en:"New Friend",  cost:150, req:"s_furni",  desc:"迎接一隻新寶貝入住"}
+];
+const FAC_SLOTS = [ // 建好的設施在場景上排的位置(靠兩側/邊緣,避開正中央煮湯鍋與寵物)
+  {x:14,y:18},{x:86,y:18},{x:12,y:33},{x:88,y:33},{x:25,y:15},{x:75,y:15},
+  {x:26,y:30},{x:74,y:30},{x:14,y:47},{x:86,y:47},{x:34,y:24},{x:66,y:24},
+  {x:9,y:60},{x:91,y:60},{x:25,y:44},{x:75,y:44},{x:50,y:14}
+];
+function facById(id){ return FACILITIES.find(f=>f.id===id); }
+function facBuilt(id){ return S && Array.isArray(S.facilities) && S.facilities.indexOf(id)>=0; }
+function facCount(){ return (S && Array.isArray(S.facilities))? S.facilities.length : 0; }
 
 let S = load(), words = [], cur = null, mode = "pick", tick = null;
 
@@ -592,6 +638,8 @@ function migrate(s){
   if(typeof s.stamTs!=="number") s.stamTs = now();
   if(typeof s.gem!=="number") s.gem = 0;
   if(typeof s.stamp!=="number") s.stamp = 0;
+  // 🏗️ 建造設施：已蓋的設施 id 陣列
+  if(!Array.isArray(s.facilities)) s.facilities = [];
   // 📅 每日任務（登入連續獎勵＋今日任務）
   s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
@@ -696,10 +744,11 @@ function render(){
   const vb=document.getElementById("visitorBtn");
   if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
     if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
-  renderPets(); renderDecor(); renderAway();
+  renderPets(); renderDecor(); renderFacilities(); renderAway();
   var _pb=document.getElementById("potBtn"); if(_pb) _pb.classList.toggle("hidden", S.theme!=="kitchen" || editMode);
 }
-function piggyAvail(){ if(!S.piggy) return 0; return Math.min(PIGGY_CAP, Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
+function piggyCap(){ return PIGGY_CAP + facCount()*3; }   // 每蓋一個設施，離線存錢筒上限+3
+function piggyAvail(){ if(!S.piggy) return 0; return Math.min(piggyCap(), Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
 function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
 /* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
 const CHORES=[{ic:"🍳",t:"煮飯中"},{ic:"🍲",t:"煮湯中"},{ic:"🧹",t:"打掃中"},{ic:"🪴",t:"澆花中"},{ic:"📖",t:"讀單字"},{ic:"🎣",t:"釣魚中"},{ic:"🧺",t:"洗衣服"},{ic:"☕",t:"泡茶中"},{ic:"🎨",t:"畫畫中"},{ic:"🛁",t:"泡澡中"}];
@@ -1472,6 +1521,66 @@ function cookDone(r){
   const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
   toast(r.name+" 完成！🪙+"+coin+" 🍎+2"+(fav?"（🐱擅長加成！）":""));
   if(leveled) setTimeout(()=>toast("🍲 湯站升級到 Lv."+soupLv()+"！解鎖新湯"),1200);
+}
+/* ===== 🏗️ 建造設施（村莊系統）===== */
+let buildCat = "cook";
+function openBuild(){
+  const m=document.createElement("div"); m.className="modal"; m.id="buildModal";
+  m.innerHTML=`<div class="sheet"><h2>🏗️ 建造設施</h2>
+    <div class="hint">用 🪙金幣（學英文賺的）蓋設施，村莊會慢慢長大！有些要先蓋別的才解鎖。蓋越多，離線存錢筒上限越大。</div>
+    <div id="buildTabs" style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;justify-content:center"></div>
+    <div id="buildList" style="max-height:48vh;overflow:auto"></div>
+    <div id="buildCount" style="margin-top:6px;font-size:13px;color:#8a7a5a"></div>
+    <button class="btn" onclick="document.getElementById('buildModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+  renderBuildTabs(); renderBuildList();
+}
+function renderBuildTabs(){
+  const t=document.getElementById("buildTabs"); if(!t) return;
+  t.innerHTML=FAC_CATS.map(c=>{
+    const on=c.id===buildCat;
+    return `<button onclick="buildCat='${c.id}';renderBuildTabs();renderBuildList()" style="border:none;border-radius:999px;padding:6px 12px;font-weight:900;font-size:13px;cursor:pointer;${on?'background:#e0a24a;color:#fff':'background:#f0e6d2;color:#8a7a5a'}">${c.name}</button>`;
+  }).join("");
+}
+function renderBuildList(){
+  const box=document.getElementById("buildList"); if(!box) return;
+  const list=FACILITIES.filter(f=>f.cat===buildCat);
+  box.innerHTML=list.map(f=>{
+    const built=facBuilt(f.id), reqOk=!f.req||facBuilt(f.req);
+    const reqName=f.req?((facById(f.req)||{}).name||""):"";
+    let right;
+    if(built) right=`<div style="font-size:18px;color:#39a35a;white-space:nowrap">✓ 已蓋</div>`;
+    else if(!reqOk) right=`<div style="font-size:11px;color:#b0508a;white-space:nowrap;text-align:right">🔒 先蓋<br><b>${reqName}</b></div>`;
+    else right=`<button class="linkbtn" style="color:#fff;background:#e0a24a;border-radius:12px;width:auto;padding:8px 13px;margin:0;white-space:nowrap" onclick="buildFacility('${f.id}')">🪙${f.cost} 建造</button>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px;margin-bottom:8px;background:${built?'#eaf7ee':(reqOk?'#fff6e6':'#eeeeee')};${built||reqOk?'':'opacity:.65'}">
+      <div style="font-size:30px">${f.ic}</div>
+      <div style="flex:1;text-align:left;min-width:0">
+        <div style="font-weight:900">${f.name} <span style="font-size:12px;color:#8a7a5a">${f.en}</span></div>
+        <div style="font-size:12px;color:#8a7a5a;margin-top:2px">${f.desc}</div></div>
+      ${right}</div>`;
+  }).join("");
+  const cnt=document.getElementById("buildCount"); if(cnt) cnt.innerHTML=`已蓋 <b>${facCount()}</b> / ${FACILITIES.length} 個設施 · 🪙${S.coins}`;
+}
+function buildFacility(id){
+  const f=facById(id); if(!f||facBuilt(id)) return;
+  if(f.req && !facBuilt(f.req)){ toast("要先蓋「"+((facById(f.req)||{}).name||"")+"」"); return; }
+  if(S.coins<f.cost){ toast("金幣不夠～多學幾個單字賺 🪙"); return; }
+  S.coins-=f.cost; S.facilities.push(id);
+  S.stamp=(S.stamp||0)+1; S.food+=1;               // 蓋好給一點獎勵
+  if(id==="s_newcat"){ const p=newPet(randSpecies()); S.pets.push(p); setTimeout(()=>toast("🏡 新夥伴 "+speciesName(p.species)+" 入住了！"),700); }
+  save(); render(); renderBuildTabs(); renderBuildList();
+  toast("🏗️ 蓋好「"+f.name+"」！🔖+1 🍎+1，存錢筒上限+3");
+}
+function renderFacilities(){
+  const box=document.getElementById("facs"); if(!box) return; box.innerHTML="";
+  (S.facilities||[]).forEach((id,i)=>{
+    const f=facById(id); if(!f) return;
+    const pos=FAC_SLOTS[i%FAC_SLOTS.length];
+    const el=document.createElement("div"); el.className="facitem";
+    el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
+    el.innerHTML=`<div class="fi">${f.ic}</div><div class="fn">${f.name}</div>`;
+    box.appendChild(el);
+  });
 }
 function openSettings(){
   const m=document.createElement("div"); m.className="modal"; m.id="settingsModal";
