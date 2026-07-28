@@ -561,7 +561,8 @@ const FACILITIES = [
   {id:"s_observ", cat:"spec", ic:"🔭", name:"天文台",     en:"Observatory", cost:60,  req:"f_board",  desc:"尋找新的寶貝夥伴"},
   {id:"s_furni",  cat:"spec", ic:"🛋️", name:"家具店",     en:"Furniture",   cost:85,  req:"s_observ", desc:"買家具佈置房間"},
   {id:"s_show",   cat:"spec", ic:"🏆", name:"展示櫃",     en:"Showcase",    cost:120, req:"f_trade",  desc:"料理售價提高(加成)"},
-  {id:"s_newcat", cat:"spec", ic:"🏡", name:"新夥伴的家", en:"New Friend",  cost:150, req:"s_furni",  desc:"迎接一隻新寶貝入住"}
+  {id:"s_newcat", cat:"spec", ic:"🏡", name:"新夥伴的家", en:"New Friend",  cost:150, req:"s_furni",  desc:"迎接一隻新寶貝入住"},
+  {id:"x_sentence", cat:"func", ic:"📖", name:"句子工坊", en:"Sentences", cost:90, req:"f_board", desc:"玩句子拼圖、學造句"}
 ];
 // 設施擺放槽位(環狀由內往外),設施越多用到越外圈→配合地圖縮放「看全圖」自動擴大。避開正中央寵物與頂部煮湯鍋。
 const FAC_SLOTS = [
@@ -1233,6 +1234,46 @@ function claimTheme(t){
   S.themeClaimed.push(t); S.coins+=30; S.stamp=(S.stamp||0)+3; S.gem=(S.gem||0)+1; save(); render();
   const md=document.getElementById("themeModal"); if(md){ md.remove(); openThemePacks(); }
   toast("🎉 主題「"+t+"」全學會！🪙+30 🔖+3 💎+1");
+}
+/* 📖 句子拼圖：照中文把英文單字點成一句話(用現成 SENTENCES 短句)＝從單字進到句子層 */
+let sentState=null;
+function openSentence(){
+  const sents=(typeof getSentences==="function")?getSentences(S.grades):[];
+  const usable=sents.filter(s=>{ if(!s.en)return false; const n=s.en.replace(/[.!?]$/,"").split(" ").length; return n>=2&&n<=6; });
+  if(!usable.length){ toast("這個年級還沒有短句，⚙️後台勾高一點年級 📚"); return; }
+  const s=usable[Math.floor(Math.random()*usable.length)];
+  const words=s.en.replace(/[.!?]$/,"").split(" ");
+  sentState={en:s.en, zh:s.zh, words, order:shuffle(words.map((w,i)=>({w,i}))), picked:[]};
+  sentRender();
+}
+function sentRender(){
+  let m=document.getElementById("sentModal"); const first=!m;
+  if(first){ m=document.createElement("div"); m.className="modal"; m.id="sentModal"; }
+  const {zh,picked,order}=sentState;
+  const built=picked.map(p=>p.w).join(" ");
+  const remain=order.filter(o=>picked.indexOf(o)<0);
+  m.innerHTML=`<div class="sheet"><h2>📖 句子拼圖</h2>
+    <div class="hint">照中文，把英文單字「點成一句話」！</div>
+    <div class="zh" style="font-size:19px">${zh}</div>
+    <div style="min-height:36px;margin:10px 0;padding:9px;border-radius:12px;background:#eef4ff;font-size:16px;font-weight:900;color:#3a5a7a">${built||"（點下面的字…）"}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0">
+      ${remain.map(o=>`<button class="opt" style="width:auto;padding:8px 13px;font-size:15px" onclick="sentPick(${order.indexOf(o)})">${o.w}</button>`).join("")}
+    </div>
+    ${picked.length?`<button class="linkbtn" onclick="sentUndo()">↩ 收回一個</button>`:""}
+    <button class="linkbtn" onclick="document.getElementById('sentModal').remove()">關閉</button></div>`;
+  if(first) document.body.appendChild(m);
+}
+function sentPick(oi){ const o=sentState.order[oi]; if(!o||sentState.picked.indexOf(o)>=0)return; sentState.picked.push(o);
+  if(sentState.picked.length>=sentState.words.length) sentCheck(); else sentRender(); }
+function sentUndo(){ sentState.picked.pop(); sentRender(); }
+function sentCheck(){
+  const built=sentState.picked.map(p=>p.w).join(" "), target=sentState.words.join(" ");
+  if(built===target){
+    speak(sentState.en); celebrateCorrect(); S.coins+=10; S.stamp=(S.stamp||0)+1;
+    sentState.words.forEach(w=>{ if(w.length>2) markLearned(w.toLowerCase()); });
+    save(); render(); const m=document.getElementById("sentModal"); if(m)m.remove();
+    toast("🎉 句子拼對了！「"+sentState.zh+"」🪙+10 🔖+1");
+  } else { toast("順序再調整看看～我再唸一次"); speak(sentState.en); sentState.picked=[]; sentRender(); }
 }
 
 /* 🏙️ 城市闖關：對的道具 + 答對單字才能過關 */
@@ -1972,6 +2013,7 @@ function facHatchEgg(){
 function facAction(id){
   if(editMode) return;
   const f=facById(id); if(!f) return;
+  if(id==='x_sentence'){ openSentence(); return; }                       // 句子工坊→句子拼圖
   if(id==='f_gacha' || id==='s_observ'){ facHatchEgg(); return; }        // 扭蛋機/天文台→抽新寵物
   if(id==='f_trade'){ if(piggyAvail()>0) collectPiggy(); else toast("🐘 貿易所：暫時沒有可收的收益，晚點再來"); return; }
   if(id==='s_furni'){ toggleEdit(); return; }                            // 家具店→開佈置
