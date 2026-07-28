@@ -123,6 +123,7 @@
   .facitem .facres.vacant{font-size:7px;font-weight:700;color:#a06;opacity:.55;background:none;padding:0;}
   .facitem .facsp{position:absolute;top:-6px;right:-6px;font-size:14px;}
   @keyframes facpop{0%{transform:translate(-50%,-50%) scale(0);}70%{transform:translate(-50%,-50%) scale(1.18);}100%{transform:translate(-50%,-50%) scale(1);}}
+  @keyframes celeb{0%{transform:translateY(0) scale(.4);opacity:0}20%{opacity:1;transform:translateY(-8px) scale(1.25)}100%{transform:translateY(-72px) scale(1);opacity:0}}
   @keyframes wiggle{0%,100%{transform:translate(-50%,-50%) rotate(-4deg);}50%{transform:translate(-50%,-50%) rotate(4deg);}}
   .scene.editing{outline:3px dashed #5b8def;outline-offset:-3px;}
   .scene.editing .decor{z-index:5;}
@@ -1369,16 +1370,25 @@ function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1;
   }
 }
 function bondBonus(p){ return Math.floor(((p||P()||{}).bond||0)/25); }
+/* 🎉 答對慶祝：星星迸發＋金幣飛入（審查:即時正回饋是留住小孩的關鍵） */
+function celebrateCorrect(){
+  try{ if(navigator.vibrate) navigator.vibrate(20); }catch(e){}
+  const ic=["⭐","✨","🌟","💫","🎉"];
+  for(let k=0;k<6;k++){ const s=document.createElement("div"); s.textContent=ic[k%ic.length];
+    s.style.cssText="position:fixed;left:"+(42+Math.random()*16)+"%;top:"+(38+Math.random()*14)+"%;font-size:"+(18+Math.random()*16)+"px;pointer-events:none;z-index:99999;animation:celeb .85s ease-out forwards;animation-delay:"+(k*0.04).toFixed(2)+"s";
+    document.body.appendChild(s); setTimeout(()=>{ if(s.parentNode)s.remove(); },1000); }
+}
 function gotRight(bonus){
   let n = bonus||1; if(careBonus()) n += 1;           // 照顧得好→多賺（拉不推）
   S.coins += n; S.correct += 1;                        // 答對單字 → 賺錢（不是直接給食物）
   S.daily.n = (S.daily.n||0) + 1;
+  celebrateCorrect();
   if(S.daily.n === DAILY_GOAL){ S.coins += 5; toast("每日任務完成！🎁 🪙+5"); }
   bumpDaily("words");
   save(); render();
 }
 // 小遊戲共用計分（瘦身：原本在 flash/whack/bubble/fish 各寫一次）
-function scoreOne(bonus){ S.coins+=(bonus||1); S.correct++; S.daily.n=(S.daily.n||0)+1; bumpDaily("words"); save(); }
+function scoreOne(bonus){ S.coins+=(bonus||1); S.correct++; S.daily.n=(S.daily.n||0)+1; celebrateCorrect(); bumpDaily("words"); save(); }
 function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
