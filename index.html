@@ -123,6 +123,7 @@
   .piggy{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;background:#ffcf3f;color:#5b3a00;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9a900;animation:pigbob 1s ease-in-out infinite;}
   .piggy:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #d9a900;}
   .visitor{position:absolute;top:112px;left:50%;transform:translateX(-50%);z-index:6;background:#7bd389;color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #4fa96a;animation:pigbob 1s ease-in-out infinite;}
+  .harvest{position:absolute;top:112px;left:12px;z-index:6;background:#ff9d6b;color:#5b2a00;border:none;border-radius:999px;padding:7px 13px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #d9743a;animation:pigbob 1s ease-in-out infinite;}
   .visitor:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 #4fa96a;}
   @keyframes pigbob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-5px);}}
   .themecard{border:2px solid #e3e7f5;border-radius:12px;overflow:hidden;cursor:pointer;}
@@ -311,6 +312,7 @@
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
+      <button class="harvest hidden" id="harvestBtn" onclick="collectHarvest()">🧺 <span id="harvestN">0</span> 收成</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
       <div class="world" id="world">
         <div class="facs" id="facs"></div>
@@ -663,6 +665,7 @@ function migrate(s){
   // 🏗️ 建造設施：已蓋的設施 id 陣列
   if(!Array.isArray(s.facilities)) s.facilities = [];
   if(typeof s.zoom!=="number") s.zoom = 0;   // 地圖縮放：0=自動(依設施數看全圖)，>0=手動倍率
+  if(!s.harvest || typeof s.harvest.ts!=="number") s.harvest = {ts:now()};   // 設施生產食物(離線也算)
   // 📅 每日任務（登入連續獎勵＋今日任務）
   s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
@@ -764,6 +767,8 @@ function render(){
   document.getElementById("dailyTxt").textContent = dn+"/"+DAILY_GOAL;
   const pa=piggyAvail(), pb=document.getElementById("piggyBtn");
   if(pa>0 && !editMode){ pb.classList.remove("hidden"); document.getElementById("piggyN").textContent=pa; } else pb.classList.add("hidden");
+  const ha=harvestAvail(), hb=document.getElementById("harvestBtn");
+  if(hb){ if(ha>0 && !editMode){ hb.classList.remove("hidden"); document.getElementById("harvestN").textContent=ha; } else hb.classList.add("hidden"); }
   const vb=document.getElementById("visitorBtn");
   if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
     if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
@@ -773,6 +778,11 @@ function render(){
 function piggyCap(){ return PIGGY_CAP + facCount()*3; }   // 每蓋一個設施，離線存錢筒上限+3
 function piggyAvail(){ if(!S.piggy) return 0; return Math.min(piggyCap(), Math.floor((now()-S.piggy.ts)/(PIGGY_RATE_MIN*60000))); }
 function collectPiggy(){ const a=piggyAvail(); if(a<=0) return; S.coins+=a; S.piggy.ts=now(); save(); render(); toast("寵物幫你存了 🪙+"+a); }
+/* 🧺 設施生產：蓋好的設施讓寵物工作、慢慢生產食物(離線也算)。上限＝設施數×2，每 25 分產 1，鼓勵多蓋設施 */
+const HARVEST_RATE_MIN = 25;
+function harvestCap(){ return facCount()*2; }
+function harvestAvail(){ if(!S.harvest || facCount()<=0) return 0; return Math.min(harvestCap(), Math.floor((now()-S.harvest.ts)/(HARVEST_RATE_MIN*60000))); }
+function collectHarvest(){ const a=harvestAvail(); if(a<=0) return; S.food+=a; S.harvest.ts=now(); save(); render(); toast("🧺 設施生產了 🍎+"+a); }
 /* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
 const CHORES=[{ic:"🍳",t:"煮飯中"},{ic:"🍲",t:"煮湯中"},{ic:"🧹",t:"打掃中"},{ic:"🪴",t:"澆花中"},{ic:"📖",t:"讀單字"},{ic:"🎣",t:"釣魚中"},{ic:"🧺",t:"洗衣服"},{ic:"☕",t:"泡茶中"},{ic:"🎨",t:"畫畫中"},{ic:"🛁",t:"泡澡中"}];
 let chore={idx:0, until:0};
