@@ -685,6 +685,7 @@ function migrate(s){
     if(!p.id) p.id = "p"+Math.floor(Math.random()*1e9);
     if(!p.specialty) p.specialty = JOBS[Math.floor(Math.random()*JOBS.length)].id;
     if(!p.facSkill) p.facSkill = FAC_CATS[Math.floor(Math.random()*FAC_CATS.length)].id;   // 擅長的設施類別(派對加成)
+    if(typeof p.bond!=="number") p.bond = 0;   // ❤️親密度：答對單字累積、給永久學習加成
   });
   if(typeof s.active!=="number" || s.active<0 || s.active>=s.pets.length) s.active = 0;
   delete s.xp; delete s.care; delete s.away;   // 移除舊頂層單寵欄位
@@ -1196,7 +1197,14 @@ function openLearn(){ openSheet("learnWrap"); setMode(mode); if(careBonus()) toa
 function openSheet(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeSheet(id){ clearMinigame(); document.getElementById(id).classList.add("hidden"); render(); }
 
-function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1; }
+function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1;
+  // ❤️餵食＝答對單字：主寵親密度+1，親密度越高、每答對多賺金幣(永久學習加成)
+  const p=P(); if(p){ p.bond=(p.bond||0)+1;
+    const bonus=Math.floor(p.bond/25); if(bonus>0) S.coins+=bonus;
+    if(p.bond%25===0) setTimeout(()=>toast("❤️ "+speciesName(p.species)+" 跟你更親了！親密度 "+p.bond+"（每答對 +🪙"+Math.floor(p.bond/25)+" 學習加成）"),300);
+  }
+}
+function bondBonus(p){ return Math.floor(((p||P()||{}).bond||0)/25); }
 function gotRight(bonus){
   let n = bonus||1; if(careBonus()) n += 1;           // 照顧得好→多賺（拉不推）
   S.coins += n; S.correct += 1;                        // 答對單字 → 賺錢（不是直接給食物）
@@ -1463,7 +1471,7 @@ function openCollection(){
       <img src="${img}" onerror="this.replaceWith(document.createTextNode('${fall}'))" style="width:54px;height:54px;object-fit:contain;flex:0 0 54px">
       <div style="flex:1;text-align:left;min-width:0">
         <div style="font-weight:900;font-size:15px">${head} ${active?'<span style=\'color:#e0913a\'>· 主寵</span>':''}</div>
-        <div style="font-size:12px;color:#7a6a52">${st.name} · Lv.${lv}${spec?(' · 擅長'+spec.ic+spec.name):''}</div>
+        <div style="font-size:12px;color:#7a6a52">${st.name} · Lv.${lv} · ❤️親密${p.bond||0}${bondBonus(p)>0?'(+🪙'+bondBonus(p)+'/題)':''}${spec?(' · 擅長'+spec.ic+spec.name):''}</div>
       </div>
       ${active?'':`<button class="linkbtn" style="color:#4a63d6;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="pickActive(${i})">設為主寵</button>`}
       <button class="linkbtn" style="color:#3a8a5a;flex:0 0 auto;width:auto;white-space:nowrap;display:inline-block;margin-top:0;padding:6px 10px" onclick="giftPet(${i})">🎁 送朋友</button>
