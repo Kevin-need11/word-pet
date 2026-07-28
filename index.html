@@ -1906,7 +1906,9 @@ function renderFacilities(){
     const el=document.createElement("div"); el.className="facitem";
     el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
     const matched=(S.pets||[]).some(p=>p.station===id && !p.away && p.facSkill===f.cat);
-    el.innerHTML=`<div class="fi">${f.ic}${matched?'<span style="font-size:13px;vertical-align:top">✨</span>':''}</div><div class="fn">${f.name}</div>`;
+    // 有插畫就用(assets/facs/<id>.png)，載入失敗自動退回 emoji，不破版
+    const fig=`<img src="assets/facs/${id}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.parentNode.innerHTML='${f.ic}'">`;
+    el.innerHTML=`<div class="fi">${fig}${matched?'<span style="font-size:13px;vertical-align:top">✨</span>':''}</div><div class="fn">${f.name}</div>`;
     el.onclick=(e)=>{ e.stopPropagation(); facAction(id); };
     box.appendChild(el);
   });
