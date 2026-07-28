@@ -75,6 +75,11 @@
   .steam{position:absolute;left:50%;top:8%;transform:translateX(-50%);z-index:6;font-size:26px;pointer-events:none;animation:steamup 1.4s ease-out forwards;}
   @keyframes steamup{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(.7);}30%{opacity:.9;}100%{opacity:0;transform:translateX(-50%) translateY(-30px) scale(1.2);}}
   /* 多寵物在場景裡走動 */
+  .world{position:absolute;inset:0;z-index:1;transform-origin:center 56%;transition:transform .3s ease;}
+  .zoomctl{position:absolute;left:12px;bottom:44px;z-index:6;display:flex;flex-direction:column;gap:5px;}
+  .zoomctl button{width:30px;height:30px;border:none;border-radius:9px;background:rgba(255,255,255,.9);color:#4a63d6;font-weight:900;font-size:15px;line-height:1;cursor:pointer;box-shadow:0 2px 7px rgba(90,130,180,.25);}
+  .zoomctl button:active{transform:scale(.92);}
+  .scene.editing .zoomctl{display:none;}
   .pets{position:absolute;inset:0;z-index:2;pointer-events:none;}
   .petsprite{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;transition:filter .2s;pointer-events:auto;}
   .petsprite .pi{line-height:1;filter:drop-shadow(0 8px 7px rgba(60,90,120,.22));}
@@ -303,9 +308,16 @@
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
-      <div class="facs" id="facs"></div>
-      <div class="decor" id="decor"></div>
-      <div class="pets" id="pets"></div>
+      <div class="world" id="world">
+        <div class="facs" id="facs"></div>
+        <div class="decor" id="decor"></div>
+        <div class="pets" id="pets"></div>
+      </div>
+      <div class="zoomctl" id="zoomctl">
+        <button onclick="zoomStep(0.16)" title="放大">＋</button>
+        <button onclick="zoomFit()" title="看全圖">⛶</button>
+        <button onclick="zoomStep(-0.16)" title="縮小">－</button>
+      </div>
       <div class="petname" id="petName">小龍</div>
       <div class="xpwrap">
         <div class="lvtag">經驗 · Lv.<span id="lv2">1</span></div>
@@ -530,10 +542,16 @@ const FACILITIES = [
   {id:"s_show",   cat:"spec", ic:"🏆", name:"展示櫃",     en:"Showcase",    cost:120, req:"f_trade",  desc:"料理售價提高(加成)"},
   {id:"s_newcat", cat:"spec", ic:"🏡", name:"新夥伴的家", en:"New Friend",  cost:150, req:"s_furni",  desc:"迎接一隻新寶貝入住"}
 ];
-const FAC_SLOTS = [ // 建好的設施在場景上排的位置(靠兩側/邊緣,避開正中央煮湯鍋與寵物)
-  {x:14,y:18},{x:86,y:18},{x:12,y:33},{x:88,y:33},{x:25,y:15},{x:75,y:15},
-  {x:26,y:30},{x:74,y:30},{x:14,y:47},{x:86,y:47},{x:34,y:24},{x:66,y:24},
-  {x:9,y:60},{x:91,y:60},{x:25,y:44},{x:75,y:44},{x:50,y:14}
+// 設施擺放槽位(環狀由內往外),設施越多用到越外圈→配合地圖縮放「看全圖」自動擴大。避開正中央寵物與頂部煮湯鍋。
+const FAC_SLOTS = [
+  {x:13,y:15},{x:29,y:12},{x:71,y:12},{x:87,y:15},
+  {x:8,y:27},{x:24,y:25},{x:76,y:25},{x:92,y:27},
+  {x:39,y:18},{x:61,y:18},
+  {x:14,y:39},{x:30,y:37},{x:70,y:37},{x:86,y:39},
+  {x:7,y:51},{x:23,y:49},{x:77,y:49},{x:93,y:51},
+  {x:40,y:42},{x:60,y:42},
+  {x:15,y:61},{x:85,y:61},{x:31,y:58},{x:69,y:58},
+  {x:50,y:32},{x:46,y:62},{x:54,y:50}
 ];
 function facById(id){ return FACILITIES.find(f=>f.id===id); }
 function facBuilt(id){ return S && Array.isArray(S.facilities) && S.facilities.indexOf(id)>=0; }
@@ -640,6 +658,7 @@ function migrate(s){
   if(typeof s.stamp!=="number") s.stamp = 0;
   // 🏗️ 建造設施：已蓋的設施 id 陣列
   if(!Array.isArray(s.facilities)) s.facilities = [];
+  if(typeof s.zoom!=="number") s.zoom = 0;   // 地圖縮放：0=自動(依設施數看全圖)，>0=手動倍率
   // 📅 每日任務（登入連續獎勵＋今日任務）
   s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
@@ -744,7 +763,7 @@ function render(){
   const vb=document.getElementById("visitorBtn");
   if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
     if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
-  renderPets(); renderDecor(); renderFacilities(); renderAway();
+  renderPets(); renderDecor(); renderFacilities(); renderAway(); applyZoom();
   var _pb=document.getElementById("potBtn"); if(_pb) _pb.classList.toggle("hidden", S.theme!=="kitchen" || editMode);
 }
 function piggyCap(){ return PIGGY_CAP + facCount()*3; }   // 每蓋一個設施，離線存錢筒上限+3
@@ -872,9 +891,10 @@ function toggleEdit(){
   editMode=!editMode;
   const b=document.getElementById("editBtn"); b.textContent = editMode?"✓ 完成":"✋ 佈置"; b.classList.toggle("on",editMode);
   document.getElementById("scene").classList.toggle("editing",editMode);
+  applyZoom();   // 佈置時回到 1 倍(免拖曳座標跑掉)，完成後恢復縮放
   if(!editMode) save();
   renderDecor();
-  toast(editMode? "拖曳家具擺放，好了按 ✓ 完成":"佈置完成 🏡");
+  toast(editMode? "拖曳家具擺放，好了按 ✓ 完成（會先回到原比例方便擺）":"佈置完成 🏡");
 }
 function startDrag(e,i,el){
   e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(_){}
@@ -1582,6 +1602,12 @@ function renderFacilities(){
     box.appendChild(el);
   });
 }
+/* 🗺️ 地圖縮放＋自動擴大：設施越多、看全圖自動縮小讓全部進畫面；＋/－手動；佈置模式強制 1 倍免拖曳座標跑掉 */
+function autoZoom(){ const n=facCount(); return n<=9?1 : n<=15?0.82 : n<=21?0.70 : 0.60; }
+function curZoom(){ return (S && S.zoom>0)? S.zoom : autoZoom(); }
+function applyZoom(){ const w=document.getElementById("world"); if(!w) return; w.style.transform = "scale("+(editMode?1:curZoom()).toFixed(2)+")"; }
+function zoomStep(d){ S.zoom = Math.max(0.5, Math.min(1.25, +(curZoom()+d).toFixed(2))); save(); applyZoom(); }
+function zoomFit(){ S.zoom = 0; save(); applyZoom(); toast(facCount()>9?"看全圖 🔍（設施多了、自動縮小）":"看全圖 🔍"); }
 function openSettings(){
   const m=document.createElement("div"); m.className="modal"; m.id="settingsModal";
   m.innerHTML=`<div class="sheet"><h2>⚙️ 家長後台</h2><div class="hint">勾選目前要出現的單字年級（可複選）</div>
