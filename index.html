@@ -930,7 +930,8 @@ function renderPets(){
   ensurePetState();
   S.pets.forEach((p,i)=>{
     const lv=Math.floor(p.xp/XP_PER_LV)+1, st=stageFor(lv), active=i===S.active;
-    const pos=petPos[i], px = active?112:76, dur = (2.4+(i%5)*0.4).toFixed(1);
+    const stationed = p.station && (S.facilities||[]).indexOf(p.station)>=0 && !p.away;   // 入住設施→縮小成「工人」貼在設施上=一體
+    const pos=petPos[i], px = stationed?48:(active?112:76), dur = (2.4+(i%5)*0.4).toFixed(1);
     const el=document.createElement("div"); el.id="ps-"+i;
     el.className="petsprite walk"+(active?" active":"")+(p.away?" away":"")+(pos.fx?" flip":"");
     el.style.left=pos.x+"%"; el.style.top=pos.y+"%";
@@ -941,7 +942,8 @@ function renderPets(){
       tag = `<div class="choreact">${wic}</div>`+(active?`<div class="chore">${wt}…</div>`:""); }
     const oic = outfitIc(p);
     const fitBadge = oic? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:${active?30:20}px;z-index:4;pointer-events:none">${oic}</div>` : "";
-    el.innerHTML = `${fitBadge}<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${active?92:54}px;"><img src="${stageImg(p.species, st)}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.key==='egg'?st.emoji:speciesEmoji(p.species)}'"></div><div class="psh" style="width:${active?92:54}px"></div>${tag}`;
+    const fsz = stationed?40:(active?92:54);
+    el.innerHTML = `${fitBadge}<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${fsz}px;"><img src="${stageImg(p.species, st)}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.key==='egg'?st.emoji:speciesEmoji(p.species)}'"></div><div class="psh" style="width:${fsz}px"></div>${tag}`;
     el.onclick=()=>{ openPetRoom(i); };   // 點寵物＝打開牠的房間(打扮/餵食/佈置)
     box.appendChild(el);
   });
@@ -971,8 +973,8 @@ function walkStep(){
     const sidx = p.station? ids.indexOf(p.station) : -1;
     if(sidx>=0){              // ★入住設施後就固定守在自己的設施(不亂跑)，只在原地微幅晃增加生氣
       const f=facById(p.station), pos=FAC_SLOTS[sidx%FAC_SLOTS.length]; fac={f,pos};
-      nx=Math.max(8,Math.min(92, pos.x + (Math.random()*3-1.5)));
-      ny=Math.max(WALK_Y[0],Math.min(WALK_Y[1], pos.y + 10));   // 站在設施下方
+      nx=Math.max(6,Math.min(94, pos.x + (Math.random()*3-1.5)));
+      ny=Math.max(6,Math.min(88, pos.y + 8));   // ★貼在設施前(不受寵物走動範圍clamp→不會被推到設施下方老遠)
     }else{
       nx=WALK_X[0]+Math.random()*(WALK_X[1]-WALK_X[0]);   // 沒入住的才自由走動
       ny=WALK_Y[0]+Math.random()*(WALK_Y[1]-WALK_Y[0]);
@@ -1998,7 +2000,7 @@ function renderFacilities(){
     const residents=(S.pets||[]).filter(p=>p.station===id && !p.away);
     const matched=residents.some(p=>p.facSkill===f.cat);
     // 有插畫就用(assets/facs/<id>.png)，載入失敗自動退回 emoji，不破版
-    const fig=`<img src="assets/facs/${id}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.parentNode.innerHTML='${f.ic}'">`;
+    const fig=`<img src="assets/facs/${id}.png" style="width:74px;height:74px;object-fit:contain" onerror="this.parentNode.innerHTML='${f.ic}'">`;
     // 🏠 顯示入住的寵物(住戶)，沒住戶標「空缺」→ 一目了然哪些設施有精靈
     const resBadge = residents.length
       ? `<div class="facres">${residents.slice(0,3).map(p=>speciesEmoji(p.species)).join('')}</div>`
