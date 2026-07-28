@@ -772,7 +772,7 @@ function render(){
   const vb=document.getElementById("visitorBtn");
   if(vb){ if(S.visitor && now()>=S.visitor.until){ S.visitor=null; }
     if(S.visitor && !editMode){ vb.classList.remove("hidden"); vb.textContent=S.visitor.ic+" 招待"; } else vb.classList.add("hidden"); }
-  renderPets(); renderDecor(); renderFacilities(); renderAway(); applyZoom();
+  assignStations(); renderPets(); renderDecor(); renderFacilities(); renderAway(); applyZoom();
   var _pb=document.getElementById("potBtn"); if(_pb) _pb.classList.toggle("hidden", S.theme!=="kitchen" || editMode);
 }
 function piggyCap(){ return PIGGY_CAP + facCount()*3; }   // 每蓋一個設施，離線存錢筒上限+3
@@ -819,21 +819,32 @@ function renderPets(){
   });
   refreshAway();
 }
+/* 🏠 精靈入住：每隻寵物指定入住一個設施(p.station)，盡量每站都有精靈；設施沒了就釋放 */
+function assignStations(){
+  const ids=(S.facilities||[]);
+  if(!ids.length){ S.pets.forEach(p=>{ p.station=null; }); return; }
+  S.pets.forEach((p,i)=>{
+    if(p.station && ids.indexOf(p.station)>=0) return;      // 已入住有效設施
+    const taken=S.pets.map(x=>x.station).filter(Boolean);
+    p.station = ids.find(id=>taken.indexOf(id)<0) || ids[i % ids.length];   // 先補空設施，否則輪流
+  });
+}
 /* 生活場景移動：每隔幾秒每隻走到新定點(CSS 過渡=走路)、面向翻轉、換一個家事動作。直接動現有元素、不重建，才不會被 render 打斷。 */
 function walkStep(){
   if(editMode) return;
   const box=document.getElementById("pets"); if(!box) return;
-  ensurePetState();
-  // 🏗️ 建好的設施＝寵物的工作點：多數時間走到設施旁做該設施的專屬動作(進駐設施)
-  const facs=(S.facilities||[]).map((id,idx)=>({f:facById(id),pos:FAC_SLOTS[idx%FAC_SLOTS.length]})).filter(x=>x.f);
+  ensurePetState(); assignStations();
+  // 🏗️ 每隻寵物「入住」一個設施(p.station)，固定顧那站工作；偶爾離站晃一下
+  const ids=(S.facilities||[]);
   S.pets.forEach((p,i)=>{
     if(p.away) return;
     const el=document.getElementById("ps-"+i); if(!el) return;
     let nx,ny,fac=null;
-    if(facs.length && Math.random()<0.78){          // 多數時間進駐設施工作，偶爾自由走動
-      fac=facs[Math.floor(Math.random()*facs.length)];
-      nx=Math.max(8,Math.min(92, fac.pos.x + (Math.random()*10-5)));
-      ny=Math.max(WALK_Y[0],Math.min(WALK_Y[1], fac.pos.y + 10));   // 站在設施下方
+    const sidx = p.station? ids.indexOf(p.station) : -1;
+    if(sidx>=0 && Math.random()<0.88){              // 88% 待在自己入住的設施旁工作
+      const f=facById(p.station), pos=FAC_SLOTS[sidx%FAC_SLOTS.length]; fac={f,pos};
+      nx=Math.max(8,Math.min(92, pos.x + (Math.random()*8-4)));
+      ny=Math.max(WALK_Y[0],Math.min(WALK_Y[1], pos.y + 10));   // 站在設施下方
     }else{
       nx=WALK_X[0]+Math.random()*(WALK_X[1]-WALK_X[0]);
       ny=WALK_Y[0]+Math.random()*(WALK_Y[1]-WALK_Y[0]);
@@ -844,7 +855,7 @@ function walkStep(){
     el.classList.toggle("flip",flip);
     petFacWork[i]=fac;
     const ca=el.querySelector(".choreact"), cb=el.querySelector(".chore");
-    if(fac){ if(ca) ca.textContent=fac.f.ic; if(cb) cb.textContent="在"+fac.f.name+"…"; }
+    if(fac && fac.f){ if(ca) ca.textContent=fac.f.ic; if(cb) cb.textContent="在"+fac.f.name+"…"; }
     else{ petChore[i]=Math.floor(Math.random()*CHORES.length);
       if(ca) ca.textContent=CHORES[petChore[i]].ic; if(cb) cb.textContent=CHORES[petChore[i]].t+"…"; }
   });
