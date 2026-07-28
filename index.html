@@ -469,7 +469,7 @@ function stageImg(species, st){
   if(!sp) return st.img || ("assets/pets/"+st.key+".png");
   return "assets/pets/"+sp.pre+"_"+st.key+".png";
 }
-const XP_PER_LV = 50, XP_PER_FEED = 5, DAILY_GOAL = 10;
+const XP_PER_LV = 50, XP_PER_FEED = 5, XP_PER_LEARN = 4, DAILY_GOAL = 10;
 const CARE_DECAY_MIN = 6;              // 每 6 分鐘各狀態 -1
 const MASTER_N = 3;                    // 一個字答對幾次算「學會」（圖鑑點亮）
 const SPECIALTY_BONUS = 1.5;           // 做擅長的工作多賺 50%
@@ -700,6 +700,8 @@ function migrate(s){
   }
   s.pets.forEach(p=>{
     if(typeof p.xp!=="number") p.xp = 0;
+    // 🩹 補救：舊版答對只加親密度沒加xp→寵物卡在蛋。用累積的親密度回填xp，讓已經學很多的寵物孵化長大(一次性、只補不減)
+    if(typeof p.bond==="number" && p.bond>0){ const seed=p.bond*XP_PER_LEARN; if(p.xp < seed) p.xp = seed; }
     if(!p.species) p.species = "dragon";
     if(!p.care || typeof p.care.hunger!=="number") p.care = {hunger:100,mood:100,clean:100,ts:now()};
     if(typeof p.care.ts!=="number") p.care.ts = now();
@@ -1412,7 +1414,13 @@ function closeSheet(id){ clearMinigame(); document.getElementById(id).classList.
 
 function markLearned(en){ S.wordStats[en]=(S.wordStats[en]||0)+1; srsBump(en);
   // ❤️餵食＝答對單字：主寵親密度+1，親密度越高、每答對多賺金幣(永久學習加成)
-  const p=P(); if(p){ p.bond=(p.bond||0)+1;
+  const p=P(); if(p){
+    // 🥚→🐣 學習＝成長引擎：答對就餵養主寵、會孵化長大(不必靠食物也能養大主寵)
+    const beforeSt=stageFor(Math.floor((p.xp||0)/XP_PER_LV)+1).key;
+    p.xp=(p.xp||0)+XP_PER_LEARN;
+    const afterSt=stageFor(Math.floor(p.xp/XP_PER_LV)+1);
+    if(beforeSt!==afterSt.key) setTimeout(()=>toast("進化！"+speciesName(p.species)+" 變成「"+afterSt.name+"」🎉"),350);
+    p.bond=(p.bond||0)+1;
     const bonus=Math.floor(p.bond/25); if(bonus>0) S.coins+=bonus;
     if(p.bond%25===0) setTimeout(()=>toast("❤️ "+speciesName(p.species)+" 跟你更親了！親密度 "+p.bond+"（每答對 +🪙"+Math.floor(p.bond/25)+" 學習加成）"),300);
   }
@@ -1826,7 +1834,12 @@ function setPetOutfit(i,oid){
   if(!outfitOwned(p,oid)){ if(!payFor(o.cost||0,o.cur)) return; if(!Array.isArray(p.ownedOutfits))p.ownedOutfits=[]; p.ownedOutfits.push(oid); toast("買到配件 "+o.ic+" "+o.name+"！(這隻的)"); }
   p.outfit=oid; if(o.en){ speak(o.en); markLearned(o.en); } save(); render(); renderPetRoom();
 }
-function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;} S.food-=1; p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save(); render(); renderPetRoom(); toast("🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️"); }
+function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;} S.food-=1;
+  const beforeSt=stageFor(Math.floor((p.xp||0)/XP_PER_LV)+1).key;
+  p.xp=(p.xp||0)+XP_PER_FEED;   // 🍎餵食也長經驗、會孵化長大(修:原本沒加xp導致新寵卡在蛋)
+  const afterSt=stageFor(Math.floor(p.xp/XP_PER_LV)+1);
+  p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save(); render(); renderPetRoom();
+  toast((beforeSt!==afterSt.key?"進化！變成「"+afterSt.name+"」🎉 ":"🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️")); }
 function togglePetRoomItem(i,did){
   const p=S.pets[i]; if(!p)return; if(!Array.isArray(p.room))p.room=[];
   const k=p.room.findIndex(it=>it.id===did);
