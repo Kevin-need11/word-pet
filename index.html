@@ -293,6 +293,7 @@
       <button class="gear" onclick="openDex()">📖</button>
       <button class="gear" onclick="openCollection()">🐾</button>
       <button class="gear" onclick="openBuild()">🏗️</button>
+      <button class="gear" onclick="openBingo()">🎱</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -801,6 +802,48 @@ function collectGift(){
   const r=rolls[Math.floor(Math.random()*rolls.length)];
   if(r[0]==="coins")S.coins+=r[1]; else if(r[0]==="food")S.food+=r[1]; else if(r[0]==="stamp")S.stamp=(S.stamp||0)+r[1]; else if(r[0]==="gem")S.gem=(S.gem||0)+r[1];
   S.gift=null; save(); render(); toast("🎁 驚喜禮物：打開是 "+r[2]+"！");
+}
+/* 🎱 單字賓果：5×5 單字盤，看中文點對的英文，湊一條線(橫/直/斜)＝BINGO 領獎 */
+let bingoState=null;
+function openBingo(){
+  const src=(words&&words.length?words:getWords(S.grades)); const seen=new Set(), uniq=[];
+  src.forEach(w=>{ if(w&&w.en&&!seen.has(w.en)){ seen.add(w.en); uniq.push(w); } });
+  if(uniq.length<25){ toast("單字不夠開賓果（需 25 個），⚙️後台多勾幾個年級 📚"); return; }
+  shuffle(uniq); bingoState={grid:uniq.slice(0,25), marked:[], lines:[], target:null};
+  bingoNext(); bingoRender();
+}
+function bingoNext(){ const um=bingoState.grid.map((w,i)=>i).filter(i=>bingoState.marked.indexOf(i)<0);
+  bingoState.target = um.length? bingoState.grid[um[Math.floor(Math.random()*um.length)]] : null; }
+function bingoRender(){
+  let m=document.getElementById("bingoModal"); const first=!m;
+  if(first){ m=document.createElement("div"); m.className="modal"; m.id="bingoModal"; }
+  const tg=bingoState.target;
+  const cells=bingoState.grid.map((w,i)=>{ const mk=bingoState.marked.indexOf(i)>=0;
+    return `<button onclick="bingoTap(${i})" ${mk?'disabled':''} style="aspect-ratio:1;border:2px solid ${mk?'#3a8a5a':'#e6c98a'};background:${mk?'#c8ecd0':'#fff'};border-radius:9px;font-size:10px;font-weight:900;color:#3a5a7a;cursor:pointer;padding:1px;line-height:1.1;overflow:hidden">${mk?'✓<br>':''}${w.en}</button>`;
+  }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🎱 單字賓果</h2>
+    <div class="hint">看中文、點出對的英文！湊一條線(橫/直/斜)＝BINGO 領獎。已 BINGO：${bingoState.lines.length} 條</div>
+    ${tg?`<div class="zh" style="font-size:22px">${tg.zh}</div><button class="speak" onclick="speak('${tg.en}')">🔊 唸唸看</button>`:'<div class="zh" style="font-size:20px">全部完成！🎉</div>'}
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:10px 0">${cells}</div>
+    <button class="btn" onclick="document.getElementById('bingoModal').remove()">關閉</button></div>`;
+  if(first) document.body.appendChild(m);
+  if(tg) setTimeout(()=>speak(tg.en),250);
+}
+function bingoTap(i){
+  if(!bingoState||!bingoState.target) return; const w=bingoState.grid[i];
+  if(w.en!==bingoState.target.en){ toast("再看看～要找「"+bingoState.target.zh+"」"); speak(bingoState.target.en); return; }
+  bingoState.marked.push(i); markLearned(w.en); speak(w.en);
+  const nu=bingoCheckLines();
+  if(nu>0){ const rw=nu*20; S.coins+=rw; S.stamp=(S.stamp||0)+nu; save(); render(); setTimeout(()=>toast("🎉 BINGO ×"+nu+"！🪙+"+rw+" 🔖+"+nu),200); }
+  bingoNext(); if(!bingoState.target) setTimeout(()=>toast("賓果盤全部完成！🎉"),400); bingoRender();
+}
+function bingoCheckLines(){
+  const LINES=[]; for(let r=0;r<5;r++) LINES.push([0,1,2,3,4].map(c=>r*5+c));
+  for(let c=0;c<5;c++) LINES.push([0,1,2,3,4].map(r=>r*5+c));
+  LINES.push([0,6,12,18,24]); LINES.push([4,8,12,16,20]); let nu=0;
+  LINES.forEach((ln,idx)=>{ if(bingoState.lines.indexOf(idx)>=0) return;
+    if(ln.every(x=>bingoState.marked.indexOf(x)>=0)){ bingoState.lines.push(idx); nu++; } });
+  return nu;
 }
 /* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
 const CHORES=[{ic:"🍳",t:"煮飯中"},{ic:"🍲",t:"煮湯中"},{ic:"🧹",t:"打掃中"},{ic:"🪴",t:"澆花中"},{ic:"📖",t:"讀單字"},{ic:"🎣",t:"釣魚中"},{ic:"🧺",t:"洗衣服"},{ic:"☕",t:"泡茶中"},{ic:"🎨",t:"畫畫中"},{ic:"🛁",t:"泡澡中"}];
