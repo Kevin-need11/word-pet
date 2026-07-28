@@ -802,6 +802,30 @@ const HARVEST_RATE_MIN = 25;
 function harvestCap(){ return facCount()*2 + matchedCount()*2; }   // ✨擅長對到的設施多產食物
 function harvestAvail(){ if(!S.harvest || facCount()<=0) return 0; return Math.min(harvestCap(), Math.floor((now()-S.harvest.ts)/(HARVEST_RATE_MIN*60000))); }
 function collectHarvest(){ const a=harvestAvail(); if(a<=0) return; S.food+=a; S.harvest.ts=now(); save(); render(); toast("🧺 設施生產了 🍎+"+a); }
+/* 🏡 展示間（封閉版）：給爸媽/同學看孩子的學習成果＋寶貝，家長可蓋章鼓勵 */
+function openShowroom(){
+  const m=document.createElement("div"); m.className="modal"; m.id="showModal";
+  const learned=Object.keys(S.wordStats||{}).filter(en=>(S.wordStats[en]||0)>=MASTER_N).length;
+  const totalBond=(S.pets||[]).reduce((a,p)=>a+(p.bond||0),0);
+  const petCards=(S.pets||[]).map(p=>{ const st=stageFor(Math.floor(p.xp/XP_PER_LV)+1), oic=outfitIc(p);
+    return `<div style="text-align:center;width:64px"><div style="font-size:18px;height:20px">${oic||''}</div><img src="${stageImg(p.species,st)}" style="width:46px;height:46px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"><div style="font-size:10px;color:#7a6a52">${speciesName(p.species)}</div></div>`;
+  }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🏡 ${S.name} 的展示間</h2>
+    <div class="hint">給爸媽看看我學會多少、養了哪些寶貝！🎉</div>
+    <div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:6px;margin:10px 0;font-weight:900;color:#3a5a7a;font-size:12px">
+      <div>📖 學會單字<br><span style="font-size:22px">${learned}</span></div>
+      <div>🐾 寶貝<br><span style="font-size:22px">${(S.pets||[]).length}</span></div>
+      <div>📚 圖鑑<br><span style="font-size:22px">${(S.petDex||[]).length}/${SPECIES_KEYS.length}</span></div>
+      <div>🏗️ 設施<br><span style="font-size:22px">${facCount()}</span></div>
+      <div>❤️ 親密<br><span style="font-size:22px">${totalBond}</span></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0">${petCards}</div>
+    <div style="font-weight:900;color:#e0913a;margin:6px 0">🏅 家長蓋章：${S.parentStamps||0} 個</div>
+    <button class="btn" onclick="parentStamp()">🏅 家長蓋章鼓勵</button>
+    <button class="linkbtn" onclick="document.getElementById('showModal').remove()">關閉</button></div>`;
+  document.body.appendChild(m); m.onclick=(e)=>{ if(e.target===m) m.remove(); };
+}
+function parentStamp(){ S.parentStamps=(S.parentStamps||0)+1; save(); const md=document.getElementById("showModal"); if(md){ md.remove(); openShowroom(); } toast("🏅 爸媽幫你蓋章 +1！好棒 💛"); }
 function collectGift(){
   const rolls=[["coins",15,"🪙金幣 +15"],["food",3,"🍎食物 +3"],["stamp",2,"🔖印章 +2"],["gem",1,"💎鑽石 +1"],["coins",30,"🪙金幣 +30"],["food",5,"🍎食物 +5"]];
   const r=rolls[Math.floor(Math.random()*rolls.length)];
@@ -1898,6 +1922,7 @@ function openSettings(){
       收集明信片：<b>${S.cards.length}</b> 張 · 題庫：<b id="poolCount">-</b> 字<br>
       ☁️ 雲端：<b>${CloudSave.account()? ('已連（'+CloudSave.displayName()+'）') : '未連結（點下方登入）'}</b></div>
     <button class="btn" onclick="saveSettings()">儲存並繼續</button>
+    <button class="linkbtn" style="color:#c9873a;font-weight:900" onclick="document.getElementById('settingsModal').remove();openShowroom()">🏡 展示間（給爸媽看學習成果）</button>
     <button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="cloudLogin()">☁️ 雲端帳號（登入／換手機不丟）</button>
     <button class="linkbtn" style="color:#2a9d8f" onclick="backupToCloud()">☁️ 立即備份並確認</button>
     <button class="linkbtn" style="color:#c08a3a" onclick="switchAccount()">🔄 登出／切換帳號</button>
