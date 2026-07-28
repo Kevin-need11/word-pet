@@ -940,8 +940,8 @@ function renderPets(){
     else if(!editMode){ const fw=petFacWork[i]; const ch=CHORES[petChore[i]]||CHORES[0];
       const wic = fw? fw.f.ic : ch.ic, wt = fw? ("在"+fw.f.name) : ch.t;
       tag = `<div class="choreact">${wic}</div>`+(active?`<div class="chore">${wt}…</div>`:""); }
-    const oic = outfitIc(p);
-    const fitBadge = oic? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:${active?30:20}px;z-index:4;pointer-events:none">${oic}</div>` : "";
+    const ovis = outfitVis(p.outfit, active?30:20);
+    const fitBadge = ovis? `<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);z-index:4;pointer-events:none">${ovis}</div>` : "";
     const fsz = stationed?40:(active?92:54);
     el.innerHTML = `${fitBadge}<div class="pi" ${active?'id="activeSprite"':''} style="animation:bob ${dur}s ease-in-out infinite;font-size:${fsz}px;"><img src="${stageImg(p.species, st)}" alt="" style="max-height:${px}px;max-width:${px}px" onerror="this.parentNode.textContent='${st.key==='egg'?st.emoji:speciesEmoji(p.species)}'"></div><div class="psh" style="width:${fsz}px"></div>${tag}`;
     el.onclick=()=>{ openPetRoom(i); };   // 點寵物＝打開牠的房間(打扮/餵食/佈置)
@@ -1717,7 +1717,7 @@ function openCollection(){
   m.onclick=(e)=>{ if(e.target===m) m.remove(); };
 }
 /* 🏠 每隻精靈獨立的房間：打扮(戴配件)／餵食(單獨餵)／佈置(擺房間物品) */
-const OUTFITS=[{id:"none",ic:"",name:"不戴",en:"",cost:0},{id:"hat",ic:"🎩",name:"紳士帽",en:"hat",cost:12},{id:"crown",ic:"👑",name:"皇冠",en:"crown",cost:2,cur:"gem"},{id:"bow",ic:"🎀",name:"蝴蝶結",en:"ribbon",cost:12},{id:"cap",ic:"🧢",name:"鴨舌帽",en:"cap",cost:12},{id:"glasses",ic:"🕶️",name:"墨鏡",en:"glasses",cost:18},{id:"flower",ic:"🌸",name:"小花",en:"flower",cost:8},{id:"star",ic:"⭐",name:"星星",en:"star",cost:2,cur:"gem"},{id:"party",ic:"🥳",name:"派對帽",en:"party hat",cost:20}];
+const OUTFITS=[{id:"none",ic:"",name:"不戴",en:"",cost:0},{id:"hat",ic:"🎩",name:"紳士帽",en:"hat",cost:12},{id:"crown",ic:"👑",name:"皇冠",en:"crown",cost:2,cur:"gem"},{id:"bow",ic:"🎀",name:"蝴蝶結",en:"ribbon",cost:12},{id:"cap",ic:"🧢",name:"鴨舌帽",en:"cap",cost:12},{id:"glasses",ic:"🕶️",name:"墨鏡",en:"glasses",cost:18},{id:"flower",ic:"🌸",name:"小花",en:"flower",cost:8},{id:"star",ic:"⭐",name:"星星",en:"star",cost:2,cur:"gem"},{id:"party",ic:"🥳",name:"派對帽",en:"party hat",cost:20},{id:"hp",ic:"🎧",name:"耳機",en:"headphones",cost:15},{id:"wings",ic:"🪽",name:"翅膀",en:"wings",cost:2,cur:"gem"},{id:"scarf",ic:"🧣",name:"圍巾",en:"scarf",cost:14},{id:"catears",ic:"🐱",name:"貓耳",en:"cat ears",cost:16}];
 const ROOMITEMS=[{id:"rug",ic:"🟫",name:"地毯",en:"rug",cost:12},{id:"plant",ic:"🪴",name:"盆栽",en:"plant",cost:12},{id:"sofa",ic:"🛋️",name:"沙發",en:"sofa",cost:25},{id:"pic",ic:"🖼️",name:"掛畫",en:"picture",cost:18},{id:"bed",ic:"🛏️",name:"小床",en:"bed",cost:22},{id:"toy",ic:"🧸",name:"玩偶",en:"teddy",cost:15},{id:"cake",ic:"🎂",name:"蛋糕",en:"cake",cost:10},{id:"ball",ic:"⚽",name:"皮球",en:"ball",cost:10},{id:"lamp",ic:"🏮",name:"燈籠",en:"lantern",cost:15}];
 function roomItemById(id){ return ROOMITEMS.find(x=>x.id===id); }
 /* 擁有＝每隻寵物各自買(p.ownedOutfits/p.ownedRoomItems)；集章卡限定配件(S.stampOutfits)是全體共用的特例 */
@@ -1738,6 +1738,8 @@ const STAMP_ITEMS=[
 ];
 function allOutfits(){ return OUTFITS.concat(STAMP_ITEMS.filter(x=>x.type==="outfit" && (S.stampOutfits||[]).indexOf(x.id)>=0)); }
 function outfitIc(p){ const o=allOutfits().find(x=>x.id===(p&&p.outfit||"none")); return o?o.ic:""; }
+/* 配件視覺：有真圖(assets/outfits/<id>.png)就用、沒圖退回 emoji(等 Kevin 生配件圖自動換上、戴頭上) */
+function outfitVis(oid,size){ if(!oid||oid==="none")return ""; const o=allOutfits().find(x=>x.id===oid); const ic=o?o.ic:""; return `<img src="assets/outfits/${oid}.png" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${ic}'))">`; }
 function openStampShop(){
   const m=document.createElement("div"); m.className="modal"; m.id="stampModal";
   const rows=STAMP_ITEMS.map(it=>{
@@ -1776,7 +1778,7 @@ function renderPetRoom(){
   const preview=`<div style="position:relative;height:156px;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
     <img src="assets/scenes/room.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
     ${floorItems}
-    <div style="position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);text-align:center">${oic?`<div style="font-size:24px;margin-bottom:-8px">${oic}</div>`:""}<img src="${stageImg(p.species,st)}" style="width:74px;height:74px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"></div>
+    <div style="position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);text-align:center">${outfitVis(p.outfit,26)?`<div style="margin-bottom:-8px">${outfitVis(p.outfit,26)}</div>`:""}<img src="${stageImg(p.species,st)}" style="width:74px;height:74px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"></div>
     <div style="position:absolute;left:8px;bottom:6px;font-size:11px;color:#5a4a2a;background:rgba(255,255,255,.65);border-radius:8px;padding:1px 7px">${nm} · ❤️${p.bond||0} · 🍖${p.care.hunger}</div></div>`;
   const tabs=[["dress","👗打扮"],["feed","🍎餵食"],["deco","🏠佈置"]].map(t=>`<button onclick="petRoomTab='${t[0]}';renderPetRoom()" style="border:none;border-radius:999px;padding:6px 14px;margin:2px;font-weight:900;font-size:13px;cursor:pointer;${petRoomTab===t[0]?'background:#e0a24a;color:#fff':'background:#f0e6d2;color:#8a7a5a'}">${t[1]}</button>`).join("");
   let body="";
