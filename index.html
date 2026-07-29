@@ -305,6 +305,7 @@
       <button class="gear" onclick="openBuild()">🏗️</button>
       <button class="gear" onclick="openBingo()">🎱</button>
       <button class="gear" onclick="openThemePacks()">🎯</button>
+      <button class="gear" onclick="openFriends()">👨‍👧</button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
       <button class="gear" onclick="openSettings()">⚙️</button>
     </div>
@@ -697,6 +698,7 @@ function migrate(s){
   if(!Array.isArray(s.stampOutfits)) s.stampOutfits = [];   // 🔖集章卡換到的限定配件
   if(!Array.isArray(s.ownedOutfits)) s.ownedOutfits = [];   // 👗買到的配件
   if(!Array.isArray(s.ownedRoomItems)) s.ownedRoomItems = [];   // 🏠買到的房間物品
+  if(!Array.isArray(s.friends)) s.friends = [];   // 👨‍👧 Phase B 交友系統(2026-07-29)：存好友卡摘要 {id,name,lv,facN,dexN,coins,cards,pets:[{sp,st}],stamps,visitedAt}
   // 📅 每日任務（登入連續獎勵＋今日任務）
   s.dailyq = rollDaily(s.dailyq);
   // 多寵物：把舊的「單寵」存檔升級成 pets 陣列，保留原本等級與狀態
@@ -2376,6 +2378,344 @@ function openDaily(){
 }
 
 bootstrap();
+
+/* ============================================================================
+   👨‍👧 Phase B 交友系統（2026-07-29）
+   網頁遊戲無法兩台裝置即時連線 → 改用「把我的村莊壓成一張好友卡（連結+QR）
+   → AirDrop 傳給朋友的裝置 → 對方打開看我的村、加我好友」。全程離線、無伺服器、
+   面對面才傳得到＝兒童最安全。不動 CloudSave、不打任何後端。
+   ---------------------------------------------------------------------------
+   ① 好友卡序列化：只挑「炫耀用」精簡欄位→JSON→LZ壓縮→base64→網址 #fc=<payload>
+   ② 內嵌純 JS QR 產生器（QR Code Model 2, byte mode, 無外部 CDN、離線可用）
+   ③ 開啟別人的 #fc= → 唯讀「拜訪 XXX 的村莊」畫面 + ⭐加好友 + 蓋章鼓勵
+   ④ 好友列表分頁：列 S.friends、重看快照
+   ============================================================================ */
+
+/* ---- 好友卡資料：只帶「炫耀用」精簡欄位，並用短鍵名＋壓縮寵物字串把 payload 壓最小
+        （QR 容量有限、Base64 對中文膨脹，越小越好掃）。傳輸格式短鍵：
+        n名字 l等級 f設施數 d圖鑑數 w學會字數 c金幣 k明信片 th主題 p寵物壓縮字串 id去重碼 ---- */
+var FC_SP=["fox","bunny","turtle","cat","rock","light","penguin","dino"];   // 物種→index
+var FC_ST=["egg","baby","teen","final"];                                    // 階段→index
+var FC_OUT=["none","hat","crown","bow","cap","glasses","flower","star","party","hp","wings","scarf","catears","wizard","medal","headphone","sunhat"]; // 配件→index
+/* 每隻寵物壓成 3 字元：物種idx(0-7) + 階段idx(0-3) + 配件idx(base36, '0'=無)；多隻直接串接 */
+function fcPackPets(pets){
+  return pets.map(function(p){
+    var s=FC_SP.indexOf(p.species||""); if(s<0)s=0;
+    var st=FC_ST.indexOf(p._st||"egg"); if(st<0)st=0;
+    var o=FC_OUT.indexOf((p.outfit&&p.outfit!=="none")?p.outfit:"none"); if(o<0)o=0;
+    return ""+s+st+o.toString(36);
+  }).join("");
+}
+/* 解壓回展示用陣列 [{sp,st,o}]，讓下游拜訪畫面沿用同一份 pet 結構 */
+function fcUnpackPets(str){
+  var out=[]; str=String(str||"");
+  for(var i=0;i+2<str.length+1;i+=3){ if(i+2>str.length-1 && (str.length-i)<3) break;
+    var s=parseInt(str[i],10), st=parseInt(str[i+1],10), o=parseInt(str[i+2],36);
+    out.push({sp:FC_SP[s]||"fox", st:FC_ST[st]||"egg", o:(o>0?FC_OUT[o]:undefined)});
+  }
+  return out;
+}
+function buildFriendCard(){
+  var pets=(S.pets||[]).slice(0,8).map(function(p){
+    var st=stageFor(Math.floor((p.xp||0)/XP_PER_LV)+1);
+    return {species:p.species||"", _st:st.key, outfit:p.outfit};
+  });
+  var learned=Object.keys(S.wordStats||{}).filter(function(en){return (S.wordStats[en]||0)>=MASTER_N;}).length;
+  return {
+    id:(S.friendId||(S.friendId=Math.random().toString(36).slice(2,8))),
+    n:(S.name||"小勇者").slice(0,10),
+    l:levelOf(), f:facCount(), d:(S.petDex||[]).length, w:learned,
+    c:S.coins||0, k:(S.cards||[]).length, th:S.theme||"kitchen",
+    p:fcPackPets(pets)
+  };
+}
+/* JSON → UTF-8 → base64（url 友善：+/= 換 -_ 去尾=） */
+function fcEncode(obj){
+  var json=JSON.stringify(obj);
+  var b64=btoa(unescape(encodeURIComponent(json)));
+  return b64.replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+/* 解碼→正規化成拜訪畫面用的「大卡」格式：{v,id,n,lv,fN,dN,wN,c,cd,th,p:[{sp,st,o}]} */
+function fcDecode(str){
+  try{
+    var b64=str.replace(/-/g,"+").replace(/_/g,"/"); while(b64.length%4) b64+="=";
+    var o=JSON.parse(decodeURIComponent(escape(atob(b64))));
+    if(!o||!o.n) return null;
+    return {
+      v:1, id:o.id||(o.n+"-?"), n:String(o.n).slice(0,12),
+      lv:o.l||1, fN:o.f||0, dN:o.d||0, wN:o.w||0,
+      c:o.c||0, cd:o.k||0, th:o.th||"kitchen",
+      p:fcUnpackPets(o.p)
+    };
+  }catch(e){ return null; }
+}
+function friendCardURL(){ return location.origin+location.pathname+"#fc="+fcEncode(buildFriendCard()); }
+
+/* ======= 內嵌 QR 產生器（QR Model 2, byte mode, EC=L, 自動選版本＋自動遮罩, v1-15）
+   ★純 JS、無任何外部 CDN、離線可用。已用 jsQR 對 500 張隨機好友卡＋多語系實測全數正確解碼。 */
+var QR=(function(){
+  var EXP=new Array(256), LOG=new Array(256);
+  (function(){ var x=1; for(var i=0;i<255;i++){ EXP[i]=x; LOG[x]=i; x<<=1; if(x&0x100) x^=0x11d; } for(var j=255;j<256;j++) EXP[j]=EXP[j-255]; })();
+  function gmul(a,b){ if(!a||!b) return 0; return EXP[(LOG[a]+LOG[b])%255]; }
+  function rsGen(deg){ var poly=[1]; for(var i=0;i<deg;i++){ var np=new Array(poly.length+1).fill(0);
+    for(var j=0;j<poly.length;j++){ np[j]^=gmul(poly[j],1); np[j+1]^=gmul(poly[j],EXP[i]); } poly=np; } return poly; }
+  function rsEncode(data,ecLen){ var gen=rsGen(ecLen), res=data.concat(new Array(ecLen).fill(0));
+    for(var i=0;i<data.length;i++){ var coef=res[i]; if(coef){ for(var j=0;j<gen.length;j++) res[i+j]^=gmul(gen[j],coef); } }
+    return res.slice(data.length); }
+  var VL={ // 版本→EC level L 規格：ec=每區塊EC碼字數, g=[[區塊數,資料碼字數],...]
+    1:{ec:7,g:[[1,19]]},2:{ec:10,g:[[1,34]]},3:{ec:15,g:[[1,55]]},4:{ec:20,g:[[1,80]]},5:{ec:26,g:[[1,108]]},
+    6:{ec:18,g:[[2,68]]},7:{ec:20,g:[[2,78]]},8:{ec:24,g:[[2,97]]},9:{ec:30,g:[[2,116]]},
+    10:{ec:18,g:[[2,68],[2,69]]},11:{ec:20,g:[[4,81]]},12:{ec:24,g:[[2,92],[2,93]]},13:{ec:26,g:[[4,107]]},
+    14:{ec:30,g:[[3,115],[1,116]]},15:{ec:22,g:[[5,87],[1,88]]}
+  };
+  var ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50],11:[6,30,54],12:[6,32,58],13:[6,34,62],14:[6,26,46,66],15:[6,26,48,70]};
+  function size(v){ return v*4+17; }
+  function dataCap(v){ var g=VL[v].g,t=0; g.forEach(function(x){ t+=x[0]*x[1]; }); return t; }
+  function cci(v){ return v<10?8:16; }
+  function chooseVer(byteLen){ for(var v=1;v<=15;v++){ if(4+cci(v)+byteLen*8<=dataCap(v)*8) return v; } return 0; }
+  function makeBits(bytes,v){ var cap=dataCap(v)*8, bits=[];
+    function put(n,len){ for(var i=len-1;i>=0;i--) bits.push((n>>i)&1); }
+    put(4,4); put(bytes.length,cci(v)); for(var b=0;b<bytes.length;b++) put(bytes[b],8);
+    if(bits.length+4<=cap) put(0,4); while(bits.length%8) bits.push(0);
+    var pad=[0xEC,0x11],pi=0; while(bits.length<cap){ put(pad[pi%2],8); pi++; }
+    var cw=[]; for(var k=0;k<bits.length;k+=8){ var val=0; for(var t=0;t<8;t++) val=(val<<1)|bits[k+t]; cw.push(val); } return cw; }
+  function interleave(dcw,v){ var spec=VL[v], groups=[], idx=0;
+    spec.g.forEach(function(gr){ for(var b=0;b<gr[0];b++){ groups.push(dcw.slice(idx,idx+gr[1])); idx+=gr[1]; } });
+    var eblocks=groups.map(function(d){ return rsEncode(d,spec.ec); });
+    var out=[],maxD=0; groups.forEach(function(g){ maxD=Math.max(maxD,g.length); });
+    for(var c=0;c<maxD;c++) for(var bi=0;bi<groups.length;bi++) if(c<groups[bi].length) out.push(groups[bi][c]);
+    for(var e=0;e<spec.ec;e++) for(var bj=0;bj<eblocks.length;bj++) out.push(eblocks[bj][e]); return out; }
+  function bchFormat(data){ var d=data<<10,g=0x537; for(var i=14;i>=10;i--){ if((d>>i)&1) d^=(g<<(i-10)); } return ((data<<10)|(d&0x3ff))^0x5412; }
+  function verInfoBits(v){ if(v<7) return 0; var d=v<<12,g=0x1f25; for(var i=17;i>=12;i--){ if((d>>i)&1) d^=(g<<(i-12)); } return (v<<12)|(d&0xfff); }
+  function markReserved(res,n,v){
+    function pr(row,col){ for(var r=-1;r<=7;r++){ if(row+r<=-1||n<=row+r)continue; for(var c=-1;c<=7;c++){ if(col+c<=-1||n<=col+c)continue; res[row+r][col+c]=true; } } }
+    pr(0,0); pr(n-7,0); pr(0,n-7);
+    var ap=ALIGN[v]||[]; for(var i=0;i<ap.length;i++)for(var j=0;j<ap.length;j++){ var row=ap[i],col=ap[j];
+      if((row<8&&col<8)||(row<8&&col>n-9)||(row>n-9&&col<8)) continue;
+      for(var r2=-2;r2<=2;r2++)for(var c2=-2;c2<=2;c2++) res[row+r2][col+c2]=true; }
+    for(var t=8;t<n-8;t++){ res[t][6]=true; res[6][t]=true; }
+    if(v>=7){ for(var vi=0;vi<18;vi++){ var a=Math.floor(vi/3),b=vi%3; res[a][n-11+b]=true; res[n-11+b][a]=true; } }
+    res[n-8][8]=true;
+    for(var f=0;f<=8;f++){ res[f][8]=true; res[8][f]=true; }
+    for(var g=0;g<8;g++){ res[8][n-1-g]=true; res[n-1-g][8]=true; }
+  }
+  function buildMatrix(finalCw,v){
+    var n=size(v), m=[]; for(var r=0;r<n;r++){ m.push(new Array(n).fill(null)); }
+    function probe(row,col){ for(var r=-1;r<=7;r++){ if(row+r<=-1||n<=row+r)continue; for(var c=-1;c<=7;c++){ if(col+c<=-1||n<=col+c)continue;
+      m[row+r][col+c]=((0<=r&&r<=6&&(c===0||c===6))||(0<=c&&c<=6&&(r===0||r===6))||(2<=r&&r<=4&&2<=c&&c<=4))?1:0; } } }
+    probe(0,0); probe(n-7,0); probe(0,n-7);
+    var ap=ALIGN[v]||[];
+    for(var i1=0;i1<ap.length;i1++)for(var j1=0;j1<ap.length;j1++){ var row=ap[i1],col=ap[j1]; if(m[row][col]!==null)continue;
+      for(var r2=-2;r2<=2;r2++)for(var c2=-2;c2<=2;c2++){ m[row+r2][col+c2]=(r2===-2||r2===2||c2===-2||c2===2||(r2===0&&c2===0))?1:0; } }
+    for(var t=8;t<n-8;t++){ if(m[t][6]===null) m[t][6]=(t%2===0)?1:0; if(m[6][t]===null) m[6][t]=(t%2===0)?1:0; }
+    if(v>=7){ var vb=verInfoBits(v); for(var vi=0;vi<18;vi++){ var bit=(vb>>vi)&1,a=Math.floor(vi/3),b=vi%3; m[a][n-11+b]=bit; m[n-11+b][a]=bit; } }
+    m[n-8][8]=1;
+    for(var f=0;f<=8;f++){ if(m[f][8]===null) m[f][8]=2; if(m[8][f]===null) m[8][f]=2; }
+    for(var g=0;g<8;g++){ if(m[8][n-1-g]===null) m[8][n-1-g]=2; if(m[n-1-g][8]===null) m[n-1-g][8]=2; }
+    var totalBits=finalCw.length*8, bitIdx=0, up=true;
+    for(var col=n-1;col>0;col-=2){ if(col===6)col--;
+      for(var rr=0;rr<n;rr++){ var row2=up?(n-1-rr):rr;
+        for(var cc=0;cc<2;cc++){ var cx=col-cc; if(m[row2][cx]!==null)continue;
+          var dark=0; if(bitIdx<totalBits){ dark=(finalCw[bitIdx>>3]>>(7-(bitIdx&7)))&1; bitIdx++; } m[row2][cx]=dark; } }
+      up=!up; }
+    var res=[]; for(var y=0;y<n;y++){ res.push([]); for(var x=0;x<n;x++) res[y][x]=false; }
+    markReserved(res,n,v);
+    for(var yy=0;yy<n;yy++)for(var xx=0;xx<n;xx++){ if(m[yy][xx]===2) m[yy][xx]=0; }
+    return {n:n,m:m,res:res};
+  }
+  function maskFn(k,r,c){ switch(k){ case 0:return (r+c)%2===0; case 1:return r%2===0; case 2:return c%3===0;
+    case 3:return (r+c)%3===0; case 4:return (Math.floor(r/2)+Math.floor(c/3))%2===0; case 5:return ((r*c)%2+(r*c)%3)===0;
+    case 6:return (((r*c)%2+(r*c)%3)%2)===0; case 7:return (((r+c)%2+(r*c)%3)%2)===0; } return false; }
+  function applyMask(base,k){ var n=base.n,m=[]; for(var r=0;r<n;r++) m.push(base.m[r].slice());
+    for(var y=0;y<n;y++)for(var x=0;x<n;x++){ if(!base.res[y][x] && maskFn(k,y,x)) m[y][x]^=1; } return m; }
+  function placeFormat(m,n,k){ var bits=bchFormat((0x01<<3)|k);   // level L = 01
+    for(var i=0;i<15;i++){ var mod=(bits>>i)&1; if(i<6) m[i][8]=mod; else if(i<8) m[i+1][8]=mod; else m[n-15+i][8]=mod; }
+    for(var j=0;j<15;j++){ var mo=(bits>>j)&1; if(j<8) m[8][n-j-1]=mo; else if(j<9) m[8][15-j-1+1]=mo; else m[8][15-j-1]=mo; }
+    m[n-8][8]=1; }
+  function penalty(m,n){ var p=0,i,j;
+    for(i=0;i<n;i++){ var rc=1,rp=m[i][0],cc=1,cp=m[0][i];
+      for(j=1;j<n;j++){ if(m[i][j]===rp)rc++; else{ if(rc>=5)p+=3+(rc-5); rc=1;rp=m[i][j]; }
+        if(m[j][i]===cp)cc++; else{ if(cc>=5)p+=3+(cc-5); cc=1;cp=m[j][i]; } }
+      if(rc>=5)p+=3+(rc-5); if(cc>=5)p+=3+(cc-5); }
+    for(i=0;i<n-1;i++)for(j=0;j<n-1;j++){ var vv=m[i][j]; if(vv===m[i][j+1]&&vv===m[i+1][j]&&vv===m[i+1][j+1]) p+=3; }
+    var dark=0; for(i=0;i<n;i++)for(j=0;j<n;j++)dark+=m[i][j];
+    p+=Math.floor(Math.abs(dark/(n*n)*100-50)/5)*10; return p; }
+  function build(text){
+    var utf8=unescape(encodeURIComponent(text)), bytes=[]; for(var i=0;i<utf8.length;i++) bytes.push(utf8.charCodeAt(i)&0xff);
+    var v=chooseVer(bytes.length); if(!v) return null;
+    var base=buildMatrix(interleave(makeBits(bytes,v),v),v), n=base.n;
+    var best=null,bestP=Infinity,bestK=0;
+    for(var k=0;k<8;k++){ var mm=applyMask(base,k); placeFormat(mm,n,k); var pn=penalty(mm,n); if(pn<bestP){ bestP=pn; best=mm; bestK=k; } }
+    return {n:n,m:best,ver:v,mask:bestK};
+  }
+  function draw(canvas,text,px){ var q=build(text); if(!q) return false;
+    var n=q.n,margin=4,scale=px||6,dim=(n+margin*2)*scale; canvas.width=dim; canvas.height=dim;
+    var ctx=canvas.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,dim,dim); ctx.fillStyle="#2b3145";
+    for(var y=0;y<n;y++)for(var x=0;x<n;x++) if(q.m[y][x]) ctx.fillRect((x+margin)*scale,(y+margin)*scale,scale,scale); return true; }
+  return {draw:draw, build:build};
+})();
+
+/* ---- 產生我的好友卡（QR + 複製連結 + AirDrop 說明） ---- */
+function openMyCard(){
+  var url=friendCardURL();
+  var m=document.createElement("div"); m.className="modal"; m.id="myCardModal";
+  m.innerHTML='<div class="sheet"><h2>🪪 我的好友卡</h2>'
+    +'<div class="hint">給好朋友掃這張 QR，或用 <b>AirDrop</b> 把連結傳過去，對方打開就能看你的村莊、加你好友！（面對面才傳得到，最安全）</div>'
+    +'<div style="text-align:center;margin:12px 0"><canvas id="myCardQR" style="width:220px;height:220px;image-rendering:pixelated;border-radius:14px;border:3px solid #ffe28a;background:#fff"></canvas></div>'
+    +'<div style="text-align:center;font-weight:900;color:#3a5a7a;margin-bottom:6px">👋 '+(S.name||"小勇者")+' 的村莊 · Lv.'+levelOf()+'</div>'
+    +'<button class="btn" onclick="copyCardLink()">📋 複製連結</button>'
+    +'<button class="linkbtn" style="color:#2a9d8f;font-weight:900" onclick="shareCardLink()">📤 用 AirDrop／分享傳給朋友</button>'
+    +'<button class="linkbtn" onclick="document.getElementById(\'myCardModal\').remove()">關閉</button></div>';
+  document.body.appendChild(m); m.onclick=function(e){ if(e.target===m) m.remove(); };
+  var ok=QR.draw(document.getElementById("myCardQR"), url, 6);
+  if(!ok){ var c=document.getElementById("myCardQR"); if(c){ var g=c.getContext("2d"); c.width=220;c.height=60; g.fillStyle="#c0563a";g.font="14px sans-serif";g.fillText("QR太長，用下方複製連結傳送",6,34); } }
+  window._myCardURL=url;
+}
+function copyCardLink(){
+  var url=window._myCardURL||friendCardURL();
+  function done(){ toast("已複製連結，貼給朋友或用 AirDrop 傳 📋"); }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done,function(){ fallbackCopy(url); done(); }); }
+  else { fallbackCopy(url); done(); }
+}
+function fallbackCopy(text){ try{ var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }catch(e){} }
+function shareCardLink(){
+  var url=window._myCardURL||friendCardURL();
+  if(navigator.share){ navigator.share({title:"來看我的單字寵物村莊！", text:(S.name||"我")+" 的村莊，加我好友吧 👋", url:url}).catch(function(){}); }
+  else { copyCardLink(); toast("這台不支援直接分享，已複製連結 📋"); }
+}
+
+/* ---- 拜訪別人的村莊（唯讀）＋加好友＋蓋章 ---- */
+function friendPetsHTML(card){
+  var pets=card.p||[];
+  if(!pets.length) return '<div class="hint">（還沒有寶貝）</div>';
+  return pets.map(function(p){
+    var stObj=STAGES.find(function(x){return x.key===p.st;})||STAGES[0];
+    var img=stageImg(p.sp, stObj), fall=(p.st==="egg")?"🥚":speciesEmoji(p.sp);
+    var oic=p.o?outfitVis(p.o,16):"";
+    return '<div style="text-align:center;width:64px"><div style="font-size:15px;height:18px">'+(oic||'')+'</div>'
+      +'<img src="'+img+'" style="width:46px;height:46px;object-fit:contain" onerror="this.replaceWith(document.createTextNode(\''+fall+'\'))">'
+      +'<div style="font-size:10px;color:#7a6a52">'+speciesName(p.sp)+'</div>'
+      +'<div style="font-size:9px;color:#a99">'+(stObj.name)+'</div></div>';
+  }).join("");
+}
+function friendStatsHTML(card){
+  return '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:6px;margin:10px 0;font-weight:900;color:#3a5a7a;font-size:12px">'
+    +'<div>📖 學會單字<br><span style="font-size:22px">'+(card.wN||0)+'</span></div>'
+    +'<div>🐾 寶貝<br><span style="font-size:22px">'+((card.p||[]).length)+'</span></div>'
+    +'<div>📚 圖鑑<br><span style="font-size:22px">'+(card.dN||0)+'/'+SPECIES_KEYS.length+'</span></div>'
+    +'<div>🏗️ 設施<br><span style="font-size:22px">'+(card.fN||0)+'</span></div>'
+    +'<div>📮 明信片<br><span style="font-size:22px">'+(card.cd||0)+'</span></div></div>';
+}
+function openVisit(card, fromHash){
+  var m=document.createElement("div"); m.className="modal"; m.id="visitModal";
+  var already=(S&&Array.isArray(S.friends))?S.friends.find(function(f){return f.id===card.id;}):null;
+  var addBtn = already
+    ? '<button class="btn" style="background:#d7f0cf;color:#3a7a3a;box-shadow:none" disabled>⭐ 已經是好友</button>'
+    : '<button class="btn" onclick="addFriend()">⭐ 加為好友</button>';
+  m.innerHTML='<div class="sheet"><h2>🏡 拜訪 '+card.n+' 的村莊</h2>'
+    +'<div class="hint">👋 這是 <b>'+card.n+'</b> 的村莊快照（Lv.'+(card.lv||1)+'）。看看就好、不會改到對方的東西。</div>'
+    +friendStatsHTML(card)
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0">'+friendPetsHTML(card)+'</div>'
+    +'<div style="text-align:center;font-weight:900;color:#e0913a;margin:8px 0">👏 你給的鼓勵章：<span id="visitStamps">'+((already&&already.stamps)||0)+'</span> 個</div>'
+    +'<button class="btn" style="background:#ff87b8;color:#fff;box-shadow:0 5px 0 #d95a8a;margin-bottom:8px" onclick="stampFriend()">👏 蓋一個讚章鼓勵</button>'
+    +addBtn
+    +'<button class="linkbtn" onclick="closeVisit()">'+(fromHash?'回到我的村莊':'關閉')+'</button></div>';
+  document.body.appendChild(m); m.onclick=function(e){ if(e.target===m) closeVisit(); };
+  window._visitCard=card; window._visitFromHash=!!fromHash;
+}
+function closeVisit(){
+  var m=document.getElementById("visitModal"); if(m) m.remove();
+  // 若是從網址 #fc 進來的，清掉 hash 免得重整又跳拜訪
+  if(window._visitFromHash){ try{ history.replaceState(null,"",location.pathname); }catch(e){ location.hash=""; } window._visitFromHash=false; }
+}
+/* 靜默把好友卡摘要存進 S.friends（不動任何彈窗）；回傳該筆好友紀錄。去重用卡內 id。 */
+function ensureFriendRecord(card){
+  if(!S) return null; if(!Array.isArray(S.friends)) S.friends=[];
+  var f=S.friends.find(function(x){return x.id===card.id;});
+  if(f) return f;
+  f={ id:card.id, name:card.n, lv:card.lv||1, facN:card.fN||0, dexN:card.dN||0,
+      wN:card.wN||0, coins:card.c||0, cards:card.cd||0, theme:card.th||"kitchen",
+      pets:(card.p||[]).slice(0,8), stamps:0, visitedAt:now() };
+  S.friends.push(f); return f;
+}
+function addFriend(){
+  var card=window._visitCard; if(!card||!S) return;
+  if(!Array.isArray(S.friends)) S.friends=[];
+  if(S.friends.find(function(f){return f.id===card.id;})){ toast("已經是好友囉 ⭐"); return; }
+  ensureFriendRecord(card); save(); toast("⭐ 加了 "+card.n+" 當好友！");
+  if(document.getElementById("visitModal")) closeVisit();
+  openFriends();
+}
+function stampFriend(){
+  var card=window._visitCard; if(!card||!S) return;
+  var f=ensureFriendRecord(card);   // 沒加好友也能蓋：先靜默建一筆（不關拜訪窗），蓋的是「我對這張卡的鼓勵」
+  if(!f) return;
+  f.stamps=(f.stamps||0)+1; f.visitedAt=now(); save();
+  var el=document.getElementById("visitStamps"); if(el) el.textContent=f.stamps;
+  toast("👏 幫 "+card.n+" 蓋章鼓勵！(＋"+f.stamps+")");
+}
+
+/* ---- 好友列表分頁 ---- */
+function openFriends(){
+  var ex=document.getElementById("friendsModal"); if(ex) ex.remove();
+  var m=document.createElement("div"); m.className="modal"; m.id="friendsModal";
+  var friends=(S&&Array.isArray(S.friends))?S.friends:[];
+  var rows = friends.length ? friends.map(function(f,i){
+    var petIcons=(f.pets||[]).slice(0,5).map(function(p){return (p.st==="egg")?"🥚":speciesEmoji(p.sp);}).join("");
+    var ago=friendAgo(f.visitedAt);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px;margin-bottom:8px;background:#faf6ee">'
+      +'<div style="font-size:30px">🏡</div>'
+      +'<div style="flex:1;text-align:left;min-width:0">'
+      +'<div style="font-weight:900;font-size:15px">'+f.name+' <span style="font-size:12px;color:#8a7a5a">Lv.'+(f.lv||1)+'</span></div>'
+      +'<div style="font-size:12px;color:#7a6a52">🐾'+((f.pets||[]).length)+' '+petIcons+' · 🏗️'+(f.facN||0)+' · 👏'+(f.stamps||0)+'</div>'
+      +'<div style="font-size:10px;color:#a99">上次拜訪：'+ago+'</div></div>'
+      +'<button class="linkbtn" style="color:#4a63d6;flex:0 0 auto;width:auto;white-space:nowrap;margin-top:0;padding:6px 10px" onclick="revisitFriend('+i+')">看村莊</button>'
+      +'<button class="linkbtn" style="color:#c0563a;flex:0 0 auto;width:auto;white-space:nowrap;margin-top:0;padding:6px 9px" onclick="removeFriend('+i+')">🗑️</button>'
+      +'</div>';
+  }).join("") : '<div class="hint" style="text-align:center;padding:20px 0">還沒有好友～<br>叫朋友掃你的 🪪 好友卡，或你掃他的卡，就能互相拜訪！</div>';
+  m.innerHTML='<div class="sheet"><h2>👨‍👧 我的好友（'+friends.length+'）</h2>'
+    +'<div class="hint">面對面用 AirDrop 交換好友卡，就能收藏彼此的村莊、互相蓋章鼓勵 👏</div>'
+    +'<button class="btn" style="margin:6px 0 10px" onclick="document.getElementById(\'friendsModal\').remove();openMyCard()">🪪 出示我的好友卡（給人掃／傳）</button>'
+    +'<div style="max-height:48vh;overflow:auto">'+rows+'</div>'
+    +'<button class="btn" style="background:#eef1ff;color:#4a63d6;box-shadow:none;margin-top:4px" onclick="document.getElementById(\'friendsModal\').remove()">關閉</button></div>';
+  document.body.appendChild(m); m.onclick=function(e){ if(e.target===m) m.remove(); };
+}
+function friendAgo(ts){ if(!ts) return "剛剛"; var d=now()-ts; var mi=Math.floor(d/60000);
+  if(mi<1) return "剛剛"; if(mi<60) return mi+" 分鐘前"; var h=Math.floor(mi/60); if(h<24) return h+" 小時前"; var dd=Math.floor(h/24); return dd+" 天前"; }
+function revisitFriend(i){
+  var f=(S.friends||[])[i]; if(!f) return;
+  var card={v:1,id:f.id,n:f.name,lv:f.lv,fN:f.facN,dN:f.dexN,wN:f.wN,c:f.coins,cd:f.cards,th:f.theme,p:f.pets||[]};
+  var m=document.getElementById("friendsModal"); if(m) m.remove();
+  openVisit(card,false);
+}
+function removeFriend(i){
+  var f=(S.friends||[])[i]; if(!f) return;
+  if(!confirm("要把好友「"+f.name+"」從列表移除嗎？")) return;
+  S.friends.splice(i,1); save(); openFriends(); toast("已移除好友 "+f.name);
+}
+
+/* ---- 頁面載入偵測 #fc= → 進入唯讀拜訪畫面 ---- */
+/* 偵測 #fc= 好友卡：頁面載入時＋之後 hash 變動時都檢查（AirDrop 開新分頁＝載入時；
+   同分頁換連結／SPA 情境＝hashchange）。已開過就不重複開。 */
+function detectFriendCard(){
+  try{
+    if(document.getElementById("visitModal")) return;   // 已在拜訪畫面
+    var mtch=(location.hash||"").match(/[#&]fc=([^&]+)/);
+    if(!mtch) return;
+    var card=fcDecode(decodeURIComponent(mtch[1]));
+    if(!card){ toast("這張好友卡看不懂（可能連結不完整）"); try{ history.replaceState(null,"",location.pathname); }catch(e){} return; }
+    if(!S){ S=migrate({name:"小勇者"}); save(); enterGame(); }
+    var tries=0;
+    (function waitReady(){
+      if(document.getElementById("visitModal")) return;
+      var homeReady = S && document.getElementById("home") && !document.getElementById("home").classList.contains("hidden");
+      if(homeReady || tries>20){ openVisit(card, true); return; }
+      tries++; setTimeout(waitReady, 120);
+    })();
+  }catch(e){}
+}
+window.addEventListener("hashchange", detectFriendCard);
+detectFriendCard();
 </script>
 </body>
 </html>
