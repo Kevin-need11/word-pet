@@ -1900,7 +1900,7 @@ function renderPetRoom(){
   const st=stageFor(Math.floor(p.xp/XP_PER_LV)+1), nm=speciesName(p.species), oic=outfitIc(p);
   // 🏠 立體小房間：壁紙牆＋木地板，家具擺在地板、寵物站房裡(有 assets/scenes/room.png 就鋪上、更細膩)
   const floorItems=(p.room||[]).map((it)=>{const r=roomItemById(it.id);if(!r)return"";return `<span style="position:absolute;left:${it.x}%;top:${it.y}%;transform:translate(-50%,-50%);font-size:24px;cursor:grab;touch-action:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.22))" onpointerdown="startRoomDrag(event,${i},'${it.id}',this)">${roomItemVis(it.id,42)}</span>`;}).join("");
-  const preview=`<div style="position:relative;width:100%;aspect-ratio:1024/1536;max-height:56vh;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
+  const preview=`<div style="position:relative;width:100%;aspect-ratio:1024/1536;max-height:42vh;border-radius:16px;overflow:hidden;margin:6px 0;background:linear-gradient(180deg,#f4e3ea 0%,#f4e3ea 54%,#e7c79c 54%,#d9b184 100%)">
     <img src="assets/scenes/room.png" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
     ${floorItems}
     <div style="position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);text-align:center">${outfitVis(p.outfit,26)?`<div style="margin-bottom:-8px">${outfitVis(p.outfit,26)}</div>`:""}<img src="${stageImg(p.species,st)}" style="width:74px;height:74px;object-fit:contain" onerror="this.replaceWith(document.createTextNode('${st.key==='egg'?'🥚':speciesEmoji(p.species)}'))"></div>
@@ -1912,9 +1912,9 @@ function renderPetRoom(){
       allOutfits().map(o=>{const own=outfitOwned(p,o.id);const sub=own?(o.en?'<span style="font-size:9px;color:#3a5a7a">'+o.en+' 🔊</span>':(o.id==='none'?'':'<span style="font-size:9px;color:#39a35a">✓</span>')):'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(o.cur)+o.cost+'</span>';return `<button onclick="setPetOutfit(${i},'${o.id}')" style="border:2px solid ${(p.outfit||'none')===o.id?'#e0a24a':'#e6d5b8'};background:${(p.outfit||'none')===o.id?'#fff3e0':'#fff'};border-radius:12px;padding:5px 8px;font-size:12px;cursor:pointer;line-height:1.3">${o.id==='none'?'🚫':outfitVis(o.id,30)}<br>${o.name}<br>${sub}</button>`;}).join("")+`</div><button class="linkbtn" style="color:#c9873a;font-weight:900;margin-top:6px" onclick="openStampShop()">🔖 集章卡商店（換更多限定配件）</button>`;
   } else if(petRoomTab==="feed"){
     body=`<div class="hint">單獨餵 ${nm}，肚子＋20、也更親 ❤️＋1</div>
-      <div style="font-size:13px;margin:6px 0">🍖肚子 ${p.care.hunger}/100 · ❤️親密 ${p.bond||0} · 庫存 🍎${S.food}</div>
-      <button class="btn" onclick="feedPet(${i})" ${S.food<1?'disabled':''}>🍎 餵食</button>
-      ${S.food<1?'<div class="hint" style="margin-top:6px">沒食物了，🛒商店買或等設施🧺生產</div>':''}`;
+      <div id="feedStat" style="font-size:13px;margin:6px 0">${feedStatHTML(p)}</div>
+      <button class="btn" id="feedBtnRoom" onclick="feedPet(${i})" ${S.food<1?'disabled':''}>🍎 餵食</button>
+      <div id="feedNoFood" class="hint" style="margin-top:6px;${S.food<1?'':'display:none'}">沒食物了，🛒商店買或等設施🧺生產</div>`;
   } else {
     body=`<div class="hint">佈置 ${nm} 的房間（點物品放進／收起）</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`+
       ROOMITEMS.map(r=>{const on=(p.room||[]).some(it=>it.id===r.id);const own=roomItemOwned(p,r.id);const sub=on?'<span style="font-size:9px;color:#39a35a">已放</span>':(own?'<span style="font-size:9px;color:#3a5a7a">'+r.en+' 🔊</span>':'<span style="font-size:9px;color:#c9873a;font-weight:900">'+curIc(r.cur)+r.cost+'</span>');return `<button onclick="togglePetRoomItem(${i},'${r.id}')" style="border:2px solid ${on?'#3a8a5a':'#e6d5b8'};background:${on?'#e9f7ee':'#fff'};border-radius:12px;padding:5px 8px;font-size:12px;cursor:pointer;line-height:1.3">${roomItemVis(r.id,30)}<br>${r.name}<br>${sub}</button>`;}).join("")+`</div><div class="hint" style="margin-top:6px">🖐 房間裡的家具可以「拖動」自由擺位</div>`;
@@ -1929,12 +1929,18 @@ function setPetOutfit(i,oid){
   if(!outfitOwned(p,oid)){ if(!payFor(o.cost||0,o.cur)) return; if(!Array.isArray(p.ownedOutfits))p.ownedOutfits=[]; p.ownedOutfits.push(oid); toast("買到配件 "+o.ic+" "+o.name+"！(這隻的)"); }
   p.outfit=oid; if(o.en){ speak(o.en); markLearned(o.en); } save(); render(); renderPetRoom();
 }
-function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;} S.food-=1;
+function feedStatHTML(p){ return "🍖肚子 "+p.care.hunger+"/100 · ❤️親密 "+(p.bond||0)+" · 庫存 "+cimg('food')+S.food; }
+function feedPet(i){ const p=S.pets[i]; if(!p)return; if(S.food<1){toast("沒食物了 🍎");return;}
   const beforeSt=stageFor(Math.floor((p.xp||0)/XP_PER_LV)+1).key;
-  p.xp=(p.xp||0)+XP_PER_FEED;   // 🍎餵食也長經驗、會孵化長大(修:原本沒加xp導致新寵卡在蛋)
+  S.food-=1; p.xp=(p.xp||0)+XP_PER_FEED;   // 🍎餵食也長經驗、會孵化長大
   const afterSt=stageFor(Math.floor(p.xp/XP_PER_LV)+1);
-  p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save(); render(); renderPetRoom();
-  toast((beforeSt!==afterSt.key?"進化！變成「"+afterSt.name+"」🎉 ":"🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️")); }
+  p.care.hunger=Math.min(100,p.care.hunger+20); p.bond=(p.bond||0)+1; bumpDaily("care"); save();
+  // ★原地更新HUD+餵食狀態,不整個重建 modal→按鈕不跳位、可連續點(解 Kevin「餵食按了往下跑」)
+  var fh=document.getElementById("food"); if(fh) fh.textContent=S.food;
+  var fs=document.getElementById("feedStat"); if(fs) fs.innerHTML=feedStatHTML(p);
+  if(S.food<1){ var fb=document.getElementById("feedBtnRoom"); if(fb) fb.disabled=true; var nf=document.getElementById("feedNoFood"); if(nf) nf.style.display=""; }
+  if(beforeSt!==afterSt.key){ render(); renderPetRoom(); toast("進化！變成「"+afterSt.name+"」🎉"); }  // 只有進化才整個刷新
+  else toast("🍎 "+speciesName(p.species)+" 吃飽了、更親了 ❤️"); }
 function togglePetRoomItem(i,did){
   const p=S.pets[i]; if(!p)return; if(!Array.isArray(p.room))p.room=[];
   const k=p.room.findIndex(it=>it.id===did);
