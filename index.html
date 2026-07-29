@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="單字寵物">
+<meta name="apple-mobile-web-app-title" content="精靈之森">
 <meta name="theme-color" content="#bfe3ff">
-<title>單字寵物 · 學英文養小龍</title>
+<title>精靈之森</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;}
   html,body{height:100%;}
@@ -282,8 +282,8 @@
 
   <div id="login">
     <div class="logo">🥚</div>
-    <h1>單字寵物</h1>
-    <p>學英文單字，養出你自己的小龍！</p>
+    <h1>精靈之森</h1>
+    <p>孵一顆蛋，養出你的小精靈 🌿</p>
     <input id="nameInput" maxlength="8" placeholder="輸入你的名字">
     <button class="btn" onclick="start()">開始冒險 →</button>
     <button class="linkbtn" style="color:#2a9d8f;font-weight:900;margin-top:14px" onclick="cloudLogin()">☁️ 用帳號登入（換裝置／載最新版）</button>
@@ -2580,7 +2580,7 @@ function copyCardLink(){
 function fallbackCopy(text){ try{ var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }catch(e){} }
 function shareCardLink(){
   var url=window._myCardURL||friendCardURL();
-  if(navigator.share){ navigator.share({title:"來看我的單字寵物村莊！", text:(S.name||"我")+" 的村莊，加我好友吧 👋", url:url}).catch(function(){}); }
+  if(navigator.share){ navigator.share({title:"來看我的精靈之森村莊！", text:(S.name||"我")+" 的村莊，加我好友吧 👋", url:url}).catch(function(){}); }
   else { copyCardLink(); toast("這台不支援直接分享，已複製連結 📋"); }
 }
 
