@@ -17,11 +17,15 @@
   .btn{background:#ffcf3f;color:#5b3a00;font-weight:900;border:none;border-radius:16px;padding:15px;font-size:21px;cursor:pointer;box-shadow:0 6px 0 #d9a900;transition:.05s;width:100%;}
   .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #d9a900;}
 
-  #login{margin:auto;text-align:center;padding:26px;}
-  #login .logo{font-size:96px;margin-bottom:6px;animation:bob 2.6s ease-in-out infinite;}
-  #login h1{font-size:32px;font-weight:900;margin-bottom:8px;}
-  #login p{font-size:16px;opacity:.85;margin-bottom:26px;}
-  #login input{width:100%;font-size:23px;padding:15px 18px;border:none;border-radius:16px;text-align:center;color:#333;font-weight:700;margin-bottom:14px;box-shadow:0 3px 10px rgba(90,130,180,.18);}
+  #login{margin:auto;text-align:center;padding:28px 24px;background:rgba(255,255,255,.94);border-radius:26px;box-shadow:0 16px 44px rgba(80,110,70,.28);max-width:340px;width:87%;animation:sp-card .5s cubic-bezier(.2,.85,.3,1.25);}
+  @keyframes sp-card{0%{opacity:0;transform:scale(.8) translateY(24px);}100%{opacity:1;transform:scale(1) translateY(0);}}
+  #login .logo{font-size:70px;margin-bottom:4px;animation:bob 2.6s ease-in-out infinite;}
+  #login .logo img{height:74px;filter:drop-shadow(0 4px 6px rgba(90,120,80,.3));}
+  #login h1{font-size:30px;font-weight:900;margin-bottom:6px;color:#3f6b3a;letter-spacing:3px;}
+  #login p{font-size:15px;opacity:.85;margin-bottom:18px;}
+  #login input{width:100%;font-size:20px;padding:13px 16px;border:2px solid #e6eede;border-radius:14px;text-align:center;color:#333;font-weight:700;margin-bottom:11px;box-shadow:0 2px 8px rgba(90,130,180,.12);outline:none;}
+  #login input:focus{border-color:#8fd67a;}
+  #login .hint{font-size:12.5px;color:#9aa89a;margin:2px 0 0;}
 
   #home{height:100%;display:flex;flex-direction:column;}
   .hud{display:flex;align-items:center;gap:8px;padding:12px 14px 4px;}
@@ -324,12 +328,14 @@
 <div class="app">
 
   <div id="login">
-    <div class="logo">🥚</div>
+    <div class="logo"><img src="assets/pets/pet1_baby.png" alt="" onerror="this.replaceWith(document.createTextNode('🐣'))"></div>
     <h1>精靈之森</h1>
-    <p>孵一顆蛋，養出你的小精靈 🌿</p>
-    <input id="nameInput" maxlength="8" placeholder="輸入你的名字">
-    <button class="btn" onclick="start()">開始冒險 →</button>
-    <button class="linkbtn" style="color:#2a9d8f;font-weight:900;margin-top:14px" onclick="cloudLogin()">☁️ 用帳號登入（換裝置／載最新版）</button>
+    <p>輸入帳號密碼，進入你的森林 🌿</p>
+    <input id="acctInput" maxlength="12" placeholder="帳號（你的名字）" autocomplete="off" autocapitalize="off">
+    <input id="pinInput" type="password" maxlength="20" placeholder="密碼" autocomplete="off">
+    <button class="btn" onclick="doLogin()">進入森林 →</button>
+    <p class="hint">第一次玩？輸入新的帳號密碼就會自動幫你建立 🌱</p>
+    <button class="linkbtn" style="color:#8aa07f;font-weight:700;margin-top:12px" onclick="continueLocal()">這台已有進度，直接繼續 ›</button>
   </div>
 
   <div id="home" class="hidden">
@@ -782,6 +788,33 @@ function start(){
   else S.name = n;
   save(); enterGame();
 }
+/* 🔑 登入畫面：輸入帳號密碼→對應載入該帳號；帳號不存在=自動建立。用「新的贏」邏輯，本機較新一律保留+推上雲，絕不用空雲端蓋掉進度(保護 Daphne) */
+function doLogin(){
+  var nm=(document.getElementById("acctInput").value||"").trim();
+  var pn=(document.getElementById("pinInput").value||"").trim();
+  if(!nm){ toast("請先輸入帳號名字 🙂"); return; }
+  if(!pn){ toast("請輸入密碼 🔑"); return; }
+  toast("登入中…☁️");
+  CloudSave.login(nm,pn,function(res){
+    if(!res || !res.ok){ toast((res&&res.msg==='wrong_pin')?"密碼不對，再試一次 🔑":"連線失敗，網路再試一次"); return; }
+    CloudSave.load(function(data){
+      var localStr=localStorage.getItem("petSave");
+      var best=pickNewerSave(localStr,data);           // 雲端嚴格較新才用雲端，否則用本機＝永不倒退
+      if(best){ try{ localStorage.setItem("petSave",best); }catch(e){} }
+      if(best===localStr && localStr) CloudSave.pushNow(localStr);   // 本機較新→備份上雲
+      S = load() || migrate({name:nm});                // 載入該帳號存檔(沒有就用這名字開新的)
+      if(!S.name) S.name=nm;
+      toast(res.isNew?"帳號建立成功，歡迎 🎉":"歡迎回來 👋");
+      save(); enterGame();                             // 直接進場，不重載
+    });
+  });
+}
+/* 🛟 保險門：已有進度的人(如 Daphne)直接繼續，不碰雲端、不覆蓋、不會被鎖在外面 */
+function continueLocal(){
+  if(S){ enterGame(); return; }
+  var n=(document.getElementById("acctInput").value||"").trim()||"小勇者";
+  S=migrate({name:n}); save(); enterGame();
+}
 function enterGame(){
   words = getWords(S.grades);
   document.getElementById("login").classList.add("hidden");
@@ -792,6 +825,7 @@ function enterGame(){
   if(walkTimer) clearInterval(walkTimer); walkTimer = setInterval(walkStep, 3400); setTimeout(walkStep, 700);
   startWeather();
   if(S.bgm !== false) startBGM();
+  try{ receiveGifts(); }catch(e){}   // 進場時收朋友送的寶貝(未登入則自動略過)
 }
 
 function stageFor(lv){ let s=STAGES[0]; for(const st of STAGES){ if(lv>=st.min) s=st; } return s; }
@@ -2293,22 +2327,16 @@ document.addEventListener("pointerdown", ()=>{ if(S && S.bgm!==false && !bgmOn) 
 // 已有存檔 → 自動進遊戲，不必每次輸入名字（第一次玩才顯示登入畫面）
 /* 網路遊戲式啟動：有本機存檔先進場(不閃爍);若已登入帳號→自動讀雲端最新紀錄,雲端較新(在別台玩過)就套用、否則把本機推上雲 */
 function bootstrap(){
-  if(S){ enterGame(); }
+  // ★開場動畫結束後「停在登入畫面」(不自動進場)：Kevin 要「動畫→帳號密碼輸入→對應帳號」。有本機進度的人按「直接繼續」即可，絕不鎖在外面
+  var a=document.getElementById("acctInput");
+  if(a){ if(CloudSave.account()){ a.value=CloudSave.displayName()||CloudSave.account(); } else if(S && S.name){ a.value=S.name; } }
   var acct = CloudSave.account();
   if(acct){
-    CloudSave.load(function(cloudStr){
+    CloudSave.load(function(cloudStr){       // 背景同步：把「較新」的存檔備妥(新的贏、絕不用空雲端蓋掉本機)，畫面仍停在登入卡
       var localStr = localStorage.getItem("petSave");
       var best = pickNewerSave(localStr, cloudStr);
-      if(best && best!==localStr){
-        try{ localStorage.setItem("petSave", best); }catch(e){}
-        S = migrate(JSON.parse(best));
-        if(document.getElementById("home").classList.contains("hidden")){ enterGame(); }
-        else { decayCare(); render(); toast("已讀取雲端最新紀錄 ☁️"); }
-      } else {
-        if(localStr) CloudSave.pushNow(localStr);
-        if(!S && best){ try{ localStorage.setItem("petSave", best); }catch(e){} S=migrate(JSON.parse(best)); enterGame(); }
-      }
-      receiveGifts();
+      if(best && best!==localStr){ try{ localStorage.setItem("petSave", best); }catch(e){} S = migrate(JSON.parse(best)); }
+      else if(localStr){ CloudSave.pushNow(localStr); }
     });
   }
 }
