@@ -417,18 +417,18 @@
   <!-- 學習 -->
   <div class="sheetwrap hidden" id="learnWrap"><div class="sheet2">
     <div class="grab"></div>
-    <div class="lhead"><div class="ltitle">📚 學習賺食物</div><button class="close" onclick="closeSheet('learnWrap')">✕</button></div>
-    <div class="daily"><span>📅 今日</span><div class="dbar"><i id="dailyBar"></i></div><span id="dailyTxt">0/10</span></div>
+    <div class="lhead"><div class="ltitle"><img src="assets/ui/study.png" style="height:20px;vertical-align:-4px" onerror="this.replaceWith(document.createTextNode('📚'))"> 學習賺食物</div><button class="close" onclick="closeSheet('learnWrap')">✕</button></div>
+    <div class="daily"><span><img src="assets/ui/daily.png" style="height:15px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('📅'))"> 今日</span><div class="dbar"><i id="dailyBar"></i></div><span id="dailyTxt">0/10</span></div>
     <div class="tabs">
-      <button class="tab" data-mode="speak" onclick="setMode('speak')">🎤開口唸</button>
+      <button class="tab" data-mode="speak" onclick="setMode('speak')">開口唸</button>
       <button class="tab on" data-mode="pick" onclick="setMode('pick')">認字</button>
       <button class="tab" data-mode="spell" onclick="setMode('spell')">拼字</button>
       <button class="tab" data-mode="listen" onclick="setMode('listen')">聽音</button>
       <button class="tab" data-mode="match" onclick="setMode('match')">配對</button>
-      <button class="tab" data-mode="flash" onclick="setMode('flash')">⚡快閃</button>
-      <button class="tab" data-mode="whack" onclick="setMode('whack')">🔨打地鼠</button>
-      <button class="tab" data-mode="bubble" onclick="setMode('bubble')">🫧泡泡</button>
-      <button class="tab" data-mode="fish" onclick="setMode('fish')">🎣釣魚</button>
+      <button class="tab" data-mode="flash" onclick="setMode('flash')">快閃</button>
+      <button class="tab" data-mode="whack" onclick="setMode('whack')">打地鼠</button>
+      <button class="tab" data-mode="bubble" onclick="setMode('bubble')">泡泡</button>
+      <button class="tab" data-mode="fish" onclick="setMode('fish')">釣魚</button>
     </div>
     <div class="quiz" id="quiz"></div>
   </div></div>
@@ -735,7 +735,7 @@ function migrate(s){
   if(!s.themes.includes("kitchen")) s.themes.push("kitchen");   // 森林廚房免費、所有人都有
   if(s.theme==="meadow") s.theme = "kitchen";                   // 舊預設草原→升級成廚房主場景
   if(!s.themes.includes(s.theme)) s.theme = "kitchen";
-  if(typeof s.soupLv!=="number") s.soupLv = 1;      // 🍲 湯站等級
+  if(typeof s.soupLv!=="number") s.soupLv = 1;      // 湯站等級
   if(typeof s.soupXp!=="number") s.soupXp = 0;
   // 💰 四代幣（金幣已有 s.coins）：⚡體力 / 💎鑽石 / 🔖印章
   if(typeof s.stamina!=="number") s.stamina = 100;
@@ -1849,6 +1849,7 @@ function roomItemOwned(p,did){ return !!(p&&(p.ownedRoomItems||[]).indexOf(did)>
 function cimg(t,sz){ var m={coin:'coin',coins:'coin',gem:'gem',food:'food',stam:'energy',energy:'energy',stamp:'stamp'}; sz=sz||15; return '<img src="assets/ui/'+(m[t]||t)+'.png" style="height:'+sz+'px;vertical-align:-3px">'; }
 function curIc(cur){ return cimg(cur==="gem"?"gem":"coin"); }
 function curTxt(cur){ return cur==="gem"?"鑽石":"金幣"; }  // toast 純文字用(不能塞img)
+function uimg(name,sz){ sz=sz||18; return '<img src="assets/ui/'+name+'.png" style="height:'+sz+'px;vertical-align:-3px" onerror="this.style.display=\'none\'">'; }  // 通用UI圖示(模板字串內用)
 function payFor(cost,cur){ cur=cur||"coin"; cost=cost||0; if(cost<=0)return true;
   if(cur==="gem"){ if((S.gem||0)<cost){ toast("鑽石不夠 💎（挑戰/全對/連續打卡賺）"); return false;} S.gem-=cost; return true; }
   if((S.coins||0)<cost){ toast("金幣不夠 🪙（多學單字賺）"); return false; } S.coins-=cost; return true; }
@@ -1995,7 +1996,7 @@ function giftPet(i){
     }
   });
 }
-/* ===== 🍲 湯站：點食材煮湯學英文、升級解鎖新湯、寶貝料理專長 ===== */
+/* ===== 湯站：點食材煮湯學英文、升級解鎖新湯、寶貝料理專長 ===== */
 const ING={carrot:"紅蘿蔔",potato:"馬鈴薯",onion:"洋蔥",corn:"玉米",tomato:"番茄",mushroom:"蘑菇",cabbage:"高麗菜",broccoli:"花椰菜",pumpkin:"南瓜",egg:"蛋",fish:"魚",shrimp:"蝦子",crab:"螃蟹",milk:"牛奶",cheese:"起司",butter:"奶油"};
 const RECIPES=[
   {id:"veg",name:"蔬菜湯",en:"Vegetable Soup",ing:["carrot","potato","onion"],lv:1,coin:8},
@@ -2030,7 +2031,7 @@ function openSoup(){
       ${unlocked?`<button class="linkbtn" style="color:#fff;background:#e0a24a;border-radius:12px;width:auto;padding:8px 14px;margin:0;white-space:nowrap" onclick="cookStart('${r.id}')">煮 🍲</button>`:`<div style="font-size:12px;color:#999;white-space:nowrap">Lv.${r.lv} 解鎖</div>`}
     </div>`;
   }).join("");
-  m.innerHTML=`<div class="sheet"><h2>🍲 湯站（Lv.${lv}）</h2>
+  m.innerHTML=`<div class="sheet"><h2>${uimg('soup',20)} 湯站（Lv.${lv}）</h2>
     <div class="hint">照英文提示、依序點對食材煮湯——煮越多湯站升級、解鎖新湯！用對擅長的寶貝有加成。</div>
     <div style="max-height:52vh;overflow:auto;margin:8px 0">${rows}</div>
     <button class="btn" onclick="document.getElementById('soupModal').remove()">關閉</button></div>`;
@@ -2066,7 +2067,7 @@ function cookRender(){
     else q=`<div class="hint">🔊 聽聽看是哪一個？點對的！</div><button class="speak" onclick="speak('${target}')">🔊 再聽一次</button>`;
     opts=pick3(target).map(i=>`<button class="cookopt" onclick="cookTap('${i}')" style="background:#fff6e6;border:2px solid #e6c98a;border-radius:16px;padding:8px;cursor:pointer"><img src="${cookImg(i)}" style="width:64px;height:64px;object-fit:contain" onerror="this.parentNode.textContent='${ING[i]}'"></button>`).join("");
   }
-  m.innerHTML=`<div class="sheet"><h2>🍲 煮 ${r.name}</h2>
+  m.innerHTML=`<div class="sheet"><h2>${uimg('soup',18)} 煮 ${r.name}</h2>
     ${comboBadge}
     <div class="hint" style="margin-bottom:4px">第 ${step+1}/${r.ing.length} 種 · 已加入：${done||"（還沒）"}</div>
     ${q}
@@ -2099,7 +2100,7 @@ function cookDone(r){
   save(); render();
   const sc=document.getElementById("scene"); if(sc){ const st=document.createElement("div"); st.className="steam"; st.textContent="♨️"; sc.appendChild(st); setTimeout(()=>st.remove(),1400); }
   toast(r.name+" 完成！🪙+"+coin+" 🍎+2"+(fav?"（🐱擅長加成！）":""));
-  if(leveled) setTimeout(()=>toast("🍲 湯站升級到 Lv."+soupLv()+"！解鎖新湯"),1200);
+  if(leveled) setTimeout(()=>toast("湯站升級到 Lv."+soupLv()+"！解鎖新湯"),1200);
 }
 /* ===== 🏗️ 建造設施（村莊系統）===== */
 let buildCat = "cook";
