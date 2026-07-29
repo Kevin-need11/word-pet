@@ -374,7 +374,7 @@
       <button class="potbtn hidden" id="potBtn" onclick="openSoup()">🍲 煮湯</button>
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
-      <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()">🪙 <span id="piggyN">0</span> 收取</button>
+      <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()"><img src="assets/ui/coin.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🪙'))"> <span id="piggyN">0</span> 收取</button>
       <button class="harvest hidden" id="harvestBtn" onclick="collectHarvest()">🧺 <span id="harvestN">0</span> 收成</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
       <button class="gift hidden" id="giftBtn" onclick="collectGift()">🎁 驚喜禮物</button>
@@ -475,9 +475,9 @@
   <!-- 商店：買食物 + 家佈置 -->
   <div class="sheetwrap hidden" id="shopWrap"><div class="sheet2">
     <div class="grab"></div>
-    <div class="lhead"><div class="ltitle">🛒 商店（🪙 <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
+    <div class="lhead"><div class="ltitle"><img src="assets/ui/shop.png" style="height:20px;vertical-align:-4px" onerror="this.replaceWith(document.createTextNode('🛒'))"> 商店（<img src="assets/ui/coin.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🪙'))"> <span id="shopCoins">0</span>）</div><button class="close" onclick="closeSheet('shopWrap')">✕</button></div>
     <div style="font-weight:900;font-size:14px;margin:2px 0 8px;">🥚 買蛋（多養一隻）</div>
-    <div class="shopgrid"><div class="shopitem"><div class="si">🥚</div><div class="sn">寵物蛋</div><button onclick="buyEgg()">🪙 <span id="eggCost">30</span></button></div></div>
+    <div class="shopgrid"><div class="shopitem"><div class="si">🥚</div><div class="sn">寵物蛋</div><button onclick="buyEgg()"><img src="assets/ui/coin.png" style="height:15px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🪙'))"> <span id="eggCost">30</span></button></div></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🎒 闖關道具（過關要用）</div>
     <div class="shopgrid" id="gearGrid"></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🍎 買食物（餵寵物用）</div>
@@ -1843,7 +1843,10 @@ function roomItemVis(id,size){ const r=roomItemById(id); const ic=r?r.ic:""; ret
 /* 擁有＝每隻寵物各自買(p.ownedOutfits/p.ownedRoomItems)；集章卡限定配件(S.stampOutfits)是全體共用的特例 */
 function outfitOwned(p,oid){ return oid==="none" || (p&&(p.ownedOutfits||[]).indexOf(oid)>=0) || (S.stampOutfits||[]).indexOf(oid)>=0; }
 function roomItemOwned(p,did){ return !!(p&&(p.ownedRoomItems||[]).indexOf(did)>=0); }
-function curIc(cur){ return cur==="gem"?"💎":"🪙"; }
+// 貨幣小圖示(用真圖，取代emoji)。cimg 可在 innerHTML 情境用；toast 純文字情境用 curTxt
+function cimg(t,sz){ var m={coin:'coin',coins:'coin',gem:'gem',food:'food',stam:'energy',energy:'energy',stamp:'stamp'}; sz=sz||15; return '<img src="assets/ui/'+(m[t]||t)+'.png" style="height:'+sz+'px;vertical-align:-3px">'; }
+function curIc(cur){ return cimg(cur==="gem"?"gem":"coin"); }
+function curTxt(cur){ return cur==="gem"?"鑽石":"金幣"; }  // toast 純文字用(不能塞img)
 function payFor(cost,cur){ cur=cur||"coin"; cost=cost||0; if(cost<=0)return true;
   if(cur==="gem"){ if((S.gem||0)<cost){ toast("鑽石不夠 💎（挑戰/全對/連續打卡賺）"); return false;} S.gem-=cost; return true; }
   if((S.coins||0)<cost){ toast("金幣不夠 🪙（多學單字賺）"); return false; } S.coins-=cost; return true; }
