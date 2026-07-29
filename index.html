@@ -349,21 +349,21 @@
     </div>
     <div class="hud" style="padding-top:0;">
       <div class="who"><span id="petOwner">小龍</span><small>Lv.<span id="lv">1</span></small></div>
-      <button class="gear" id="dailyBtn" onclick="openDaily()" style="position:relative">📅<span id="dailyDot" class="hidden" style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;background:#ff4d4d;border-radius:50%;box-shadow:0 0 0 2px #eaf6ff"></span></button>
-      <button class="gear" onclick="openDex()">📖</button>
-      <button class="gear" onclick="openCollection()">🐾</button>
-      <button class="gear" onclick="openBuild()">🏗️</button>
-      <button class="gear" onclick="openBingo()">🎱</button>
-      <button class="gear" onclick="openThemePacks()">🎯</button>
-      <button class="gear" onclick="openFriends()">👨‍👧</button>
+      <button class="gear" id="dailyBtn" onclick="openDaily()" style="position:relative"><img src="assets/ui/daily.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('📅'))"><span id="dailyDot" class="hidden" style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;background:#ff4d4d;border-radius:50%;box-shadow:0 0 0 2px #eaf6ff"></span></button>
+      <button class="gear" onclick="openDex()"><img src="assets/ui/dex.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('📖'))"></button>
+      <button class="gear" onclick="openCollection()"><img src="assets/ui/collection.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🐾'))"></button>
+      <button class="gear" onclick="openBuild()"><img src="assets/ui/build.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🏗️'))"></button>
+      <button class="gear" onclick="openBingo()"><img src="assets/ui/bingo.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🎱'))"></button>
+      <button class="gear" onclick="openThemePacks()"><img src="assets/ui/theme.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🎯'))"></button>
+      <button class="gear" onclick="openFriends()"><img src="assets/ui/friends.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('👨'))"></button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
-      <button class="gear" onclick="openSettings()">⚙️</button>
+      <button class="gear" onclick="openSettings()"><img src="assets/ui/settings.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('⚙️'))"></button>
     </div>
 
     <div class="care">
-      <div class="cchip" onclick="careUp('hunger')"><div class="ct"><span>🍖 肚子</span><span id="hungerV">100</span></div><div class="cbar hunger"><i id="hungerBar"></i></div></div>
-      <div class="cchip" onclick="careUp('mood')"><div class="ct"><span>🎾 心情</span><span id="moodV">100</span></div><div class="cbar mood"><i id="moodBar"></i></div></div>
-      <div class="cchip" onclick="careUp('clean')"><div class="ct"><span>🧼 乾淨</span><span id="cleanV">100</span></div><div class="cbar clean"><i id="cleanBar"></i></div></div>
+      <div class="cchip" onclick="careUp('hunger')"><div class="ct"><span><img src="assets/ui/hunger.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🍖'))"> 肚子</span><span id="hungerV">100</span></div><div class="cbar hunger"><i id="hungerBar"></i></div></div>
+      <div class="cchip" onclick="careUp('mood')"><div class="ct"><span><img src="assets/ui/mood.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🎾'))"> 心情</span><span id="moodV">100</span></div><div class="cbar mood"><i id="moodBar"></i></div></div>
+      <div class="cchip" onclick="careUp('clean')"><div class="ct"><span><img src="assets/ui/clean.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🧼'))"> 乾淨</span><span id="cleanV">100</span></div><div class="cbar clean"><i id="cleanBar"></i></div></div>
     </div>
 
     <div class="petbar" id="petbar"></div>
@@ -372,7 +372,7 @@
       <img class="scenebg" id="sceneBg" alt="" onerror="this.dataset.failed=this.getAttribute('src'); this.style.display='none'">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="skytint" id="skytint"></div><div class="wx" id="wx"></div>
-      <button class="potbtn hidden" id="potBtn" onclick="openSoup()">🍲 煮湯</button>
+      <button class="potbtn hidden" id="potBtn" onclick="openSoup()"><img src="assets/ui/soup.png" style="height:20px;vertical-align:-4px" onerror="this.replaceWith(document.createTextNode('🍲'))"> 煮湯</button>
       <div class="stagebadge" id="stageName">蛋</div>
       <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()"><img src="assets/ui/coin.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🪙'))"> <span id="piggyN">0</span> 收取</button>
