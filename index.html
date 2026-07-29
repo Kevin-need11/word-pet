@@ -628,15 +628,12 @@ const FACILITIES = [
   {id:"f_music",   cat:"func", ic:"🎵", name:"音樂教室", en:"Music",   cost:110, req:"f_gacha",    desc:"唱單字歌、練聽力"}
 ];
 // 設施擺放槽位(環狀由內往外),設施越多用到越外圈→配合地圖縮放「看全圖」自動擴大。避開正中央寵物與頂部煮湯鍋。
+// 設施排版：24個固定區塊鋪滿整個場地、各佔獨立區、間距夠不互相遮擋(貓咪與湯式)。順序打散→設施不多也散佈全場、不擠一角。
 const FAC_SLOTS = [
-  {x:13,y:15},{x:29,y:12},{x:71,y:12},{x:87,y:15},
-  {x:8,y:27},{x:24,y:25},{x:76,y:25},{x:92,y:27},
-  {x:39,y:18},{x:61,y:18},
-  {x:14,y:39},{x:30,y:37},{x:70,y:37},{x:86,y:39},
-  {x:7,y:51},{x:23,y:49},{x:77,y:49},{x:93,y:51},
-  {x:40,y:42},{x:60,y:42},
-  {x:15,y:61},{x:85,y:61},{x:31,y:58},{x:69,y:58},
-  {x:50,y:32},{x:46,y:62},{x:54,y:50}
+  {x:16,y:16},{x:74,y:42},{x:26,y:69},{x:61,y:28},{x:88,y:57},{x:41,y:82},
+  {x:68,y:15},{x:23,y:43},{x:76,y:69},{x:11,y:30},{x:39,y:55},{x:89,y:84},
+  {x:89,y:18},{x:93,y:45},{x:51,y:68},{x:86,y:31},{x:14,y:56},{x:17,y:83},
+  {x:42,y:15},{x:49,y:42},{x:10,y:70},{x:35,y:29},{x:64,y:55},{x:65,y:83}
 ];
 function facById(id){ return FACILITIES.find(f=>f.id===id); }
 function facIcon(id,size){ const f=facById(id); size=size||30; return `<img src="assets/facs/${id}.png" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('${f?f.ic:'🏗️'}'))">`; }
@@ -2152,7 +2149,7 @@ function renderFacilities(){
     const residents=(S.pets||[]).filter(p=>p.station===id && !p.away);
     const matched=residents.some(p=>p.facSkill===f.cat);
     // 有插畫就用(assets/facs/<id>.png)，載入失敗自動退回 emoji，不破版
-    const fig=`<img src="assets/facs/${id}.png" style="width:74px;height:74px;object-fit:contain" onerror="this.parentNode.innerHTML='${f.ic}'">`;
+    const fig=`<img src="assets/facs/${id}.png" style="width:62px;height:62px;object-fit:contain" onerror="this.parentNode.innerHTML='${f.ic}'">`;
     // 🏠 顯示入住的寵物(住戶)，沒住戶標「空缺」→ 一目了然哪些設施有精靈
     const resBadge = residents.length
       ? `<div class="facres">${residents.slice(0,3).map(p=>speciesEmoji(p.species)).join('')}</div>`
