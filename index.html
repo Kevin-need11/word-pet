@@ -456,7 +456,9 @@ const SPECIES = {
   turtle: {name:"小水龜", emoji:"🐢", pre:"pet3"},
   cat:    {name:"電貓",   emoji:"⚡", pre:"pet4"},
   rock:   {name:"岩獸",   emoji:"🪨", pre:"pet5"},
-  light:  {name:"光靈",   emoji:"✨", pre:"pet6"}
+  light:  {name:"光靈",   emoji:"✨", pre:"pet6"},
+  penguin:{name:"冰企鵝", emoji:"🐧", pre:"pet7"},
+  dino:   {name:"小恐龍", emoji:"🦖", pre:"pet8"}
 };
 const SPECIES_KEYS = Object.keys(SPECIES);
 function randSpecies(){ return SPECIES_KEYS[Math.floor(Math.random()*SPECIES_KEYS.length)]; }
@@ -562,7 +564,14 @@ const FACILITIES = [
   {id:"s_furni",  cat:"spec", ic:"🛋️", name:"家具店",     en:"Furniture",   cost:85,  req:"s_observ", desc:"買家具佈置房間"},
   {id:"s_show",   cat:"spec", ic:"🏆", name:"展示櫃",     en:"Showcase",    cost:120, req:"f_trade",  desc:"料理售價提高(加成)"},
   {id:"s_newcat", cat:"spec", ic:"🏡", name:"新夥伴的家", en:"New Friend",  cost:150, req:"s_furni",  desc:"迎接一隻新寶貝入住"},
-  {id:"x_sentence", cat:"func", ic:"📖", name:"句子工坊", en:"Sentences", cost:90, req:"f_board", desc:"玩句子拼圖、學造句"}
+  {id:"x_sentence", cat:"func", ic:"📖", name:"句子工坊", en:"Sentences", cost:90, req:"f_board", desc:"玩句子拼圖、學造句"},
+  // ── 第二波擴充設施（2026-07-29）──
+  {id:"c_grill", cat:"cook", ic:"🍖", name:"燒烤台", en:"Grill",     cost:130, req:"c_coffee", desc:"烤肉串，學肉類單字"},
+  {id:"c_juice", cat:"cook", ic:"🧃", name:"果汁吧", en:"Juice Bar", cost:150, req:"c_fruit",  desc:"打果汁，學飲料單字"},
+  {id:"r_hotspring", cat:"rest", ic:"♨️", name:"溫泉",   en:"Hot Spring", cost:120, req:"r_carousel", desc:"泡湯放鬆一下"},
+  {id:"r_tent",      cat:"rest", ic:"⛺", name:"露營帳", en:"Camp",       cost:140, req:"r_cafe",     desc:"露營看星星"},
+  {id:"f_library", cat:"func", ic:"📚", name:"圖書館",   en:"Library", cost:100, req:"x_sentence", desc:"讀繪本、複習學過的單字"},
+  {id:"f_music",   cat:"func", ic:"🎵", name:"音樂教室", en:"Music",   cost:110, req:"f_gacha",    desc:"唱單字歌、練聽力"}
 ];
 // 設施擺放槽位(環狀由內往外),設施越多用到越外圈→配合地圖縮放「看全圖」自動擴大。避開正中央寵物與頂部煮湯鍋。
 const FAC_SLOTS = [
@@ -1902,9 +1911,15 @@ const RECIPES=[
   {id:"sea",name:"海鮮湯",en:"Seafood Soup",ing:["fish","shrimp","crab"],lv:3,coin:16},
   {id:"tomato",name:"番茄湯",en:"Tomato Soup",ing:["tomato","onion","cheese"],lv:4,coin:20},
   {id:"mush",name:"蘑菇湯",en:"Mushroom Soup",ing:["mushroom","cabbage","broccoli"],lv:5,coin:24},
-  {id:"pump",name:"南瓜濃湯",en:"Pumpkin Soup",ing:["pumpkin","egg","milk"],lv:6,coin:28}
+  {id:"pump",name:"南瓜濃湯",en:"Pumpkin Soup",ing:["pumpkin","egg","milk"],lv:6,coin:28},
+  {id:"fishstew",name:"鮮魚湯",en:"Fish Stew",ing:["fish","potato","carrot"],lv:7,coin:32},
+  {id:"creammush",name:"奶油蘑菇湯",en:"Creamy Mushroom Soup",ing:["mushroom","milk","butter"],lv:8,coin:34},
+  {id:"crab",name:"螃蟹濃湯",en:"Crab Bisque",ing:["crab","tomato","cheese"],lv:9,coin:38},
+  {id:"eggdrop",name:"蛋花湯",en:"Egg Drop Soup",ing:["egg","corn","onion"],lv:10,coin:42},
+  {id:"cabbage",name:"高麗菜湯",en:"Cabbage Soup",ing:["cabbage","carrot","potato"],lv:11,coin:46},
+  {id:"broccheese",name:"花椰起司湯",en:"Broccoli Cheese Soup",ing:["broccoli","cheese","milk"],lv:12,coin:50}
 ];
-const PET_SOUP={fox:"corn",cat:"corn",turtle:"sea",bunny:"veg",rock:"mush",light:"pump"};
+const PET_SOUP={fox:"corn",cat:"corn",turtle:"sea",bunny:"veg",rock:"mush",light:"pump",penguin:"sea",dino:"crab"};
 function soupLv(){ return S.soupLv||1; }
 function cookImg(id){ return "assets/food/ing_"+id+".png"; }
 function openSoup(){
@@ -2076,6 +2091,8 @@ function facAction(id){
   if(id==='s_show'){ toast("🏆 展示櫃：料理售價加成生效中（被動）"); return; }
   if(id==='s_newcat'){ openCollection(); return; }                       // 新夥伴的家→寵物收藏
   if(f.cat==='cook' || id==='f_pond'){ openSoup(); return; }             // 烹飪站/魚塘→料理學單字
+  if(id==='f_library'){ setMode('match'); openLearn(); return; }          // 圖書館→配對複習學過的字
+  if(id==='f_music'){ setMode('listen'); openLearn(); return; }           // 音樂教室→聽音練習
   if(f.cat==='func'){ openDaily(); return; }                             // 公告欄→每日任務
   if(f.cat==='rest'){ const p=P(); if(p && !p.away){ p.care.mood=Math.min(100,p.care.mood+15); save(); render(); toast("😴 寵物在「"+f.name+"」休息，心情 +15"); } else toast("寵物出門了，等牠回來 🕐"); return; }
   if(f.cat==='spec'){ openCollection(); return; }
