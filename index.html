@@ -300,6 +300,7 @@
   #splash .load{position:absolute;bottom:48px;font-size:13px;color:#f6f9ec;text-shadow:0 1px 6px rgba(30,50,20,.75);z-index:2;}
   #splash .lf{position:absolute;font-size:22px;opacity:.85;z-index:2;filter:drop-shadow(0 2px 3px rgba(30,45,25,.3));animation:sp-fall linear infinite;}
   @keyframes sp-load{0%{width:0}100%{width:100%}}
+  @keyframes celeb2{0%{transform:translate(-50%,-50%) scale(.4);opacity:1;}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1);opacity:0;}}
   @keyframes sp-wig{0%,100%{transform:rotate(0);}25%{transform:rotate(-9deg);}75%{transform:rotate(9deg);}}
   @keyframes sp-pop{0%{transform:scale(1);opacity:1;}60%{transform:scale(1.15);}100%{transform:scale(0);opacity:0;}}
   @keyframes sp-hatch{0%{opacity:0;transform:translateY(6px) scale(.6);}60%{transform:translateY(-6px) scale(1.15);}100%{opacity:1;transform:translateY(0) scale(1);}}
@@ -1519,10 +1520,11 @@ function bondBonus(p){ return Math.floor(((p||P()||{}).bond||0)/25); }
 /* 🎉 答對慶祝：星星迸發＋金幣飛入（審查:即時正回饋是留住小孩的關鍵） */
 function celebrateCorrect(){
   try{ if(navigator.vibrate) navigator.vibrate(20); }catch(e){}
-  const ic=["⭐","✨","🌟","💫","🎉"];
-  for(let k=0;k<6;k++){ const s=document.createElement("div"); s.textContent=ic[k%ic.length];
-    s.style.cssText="position:fixed;left:"+(42+Math.random()*16)+"%;top:"+(38+Math.random()*14)+"%;font-size:"+(18+Math.random()*16)+"px;pointer-events:none;z-index:99999;animation:celeb .85s ease-out forwards;animation-delay:"+(k*0.04).toFixed(2)+"s";
-    document.body.appendChild(s); setTimeout(()=>{ if(s.parentNode)s.remove(); },1000); }
+  const colors=["#ffd76a","#8fd67a","#7ac6ff","#ff9ec6","#c6a3ff","#ffb26a"];  // 純CSS彩色光點,無emoji
+  for(let k=0;k<11;k++){ const s=document.createElement("div");
+    const ang=Math.random()*6.283, dist=42+Math.random()*66, sz=7+Math.random()*9, col=colors[k%colors.length];
+    s.style.cssText="position:fixed;left:50%;top:44%;width:"+sz+"px;height:"+sz+"px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,"+col+");box-shadow:0 0 7px "+col+";pointer-events:none;z-index:99999;--dx:"+(Math.cos(ang)*dist).toFixed(0)+"px;--dy:"+(Math.sin(ang)*dist).toFixed(0)+"px;animation:celeb2 .8s ease-out forwards;animation-delay:"+(k*0.018).toFixed(2)+"s";
+    document.body.appendChild(s); setTimeout(()=>{ if(s.parentNode)s.remove(); },900); }
 }
 function gotRight(bonus){
   let n = bonus||1; if(careBonus()) n += 1;           // 照顧得好→多賺（拉不推）
