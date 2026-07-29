@@ -1010,7 +1010,7 @@ let chore={idx:0, until:0};
 function curChore(){ return CHORES[chore.idx%CHORES.length]; }
 function homeActive(){ const p=P(); return p && !p.away && !editMode; }
 function rotateChore(){ let n; do{ n=Math.floor(Math.random()*CHORES.length); }while(CHORES.length>1 && n===chore.idx); chore.idx=n; chore.until=now()+(11000+Math.random()*9000); }
-function coinPop(n){ const box=document.getElementById("pets"); if(!box) return; const f=document.createElement("div"); f.className="coinfloat"; f.textContent="🪙+"+n; box.appendChild(f); setTimeout(()=>{ if(f.parentNode) f.parentNode.removeChild(f); },1000); }
+function coinPop(n){ const box=document.getElementById("pets"); if(!box) return; const f=document.createElement("div"); f.className="coinfloat"; f.innerHTML='<img src="assets/ui/coin.png" style="height:15px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode(String.fromCodePoint(129689)))">+'+n; box.appendChild(f); setTimeout(()=>{ if(f.parentNode) f.parentNode.removeChild(f); },1000); }
 const PET_SLOTS=[{x:27,y:62},{x:73,y:60},{x:40,y:48},{x:63,y:50},{x:22,y:50},{x:78,y:52},{x:50,y:66}];
 let petPos=[], petChore=[], petFacWork=[], walkTimer=null;   // petFacWork[i]=寵物正在工作的設施(進駐設施做專屬動作)，null=一般家事
 const WALK_X=[18,82], WALK_Y=[44,72];   // 走動範圍(留邊避免超出場景)
