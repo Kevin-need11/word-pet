@@ -1847,6 +1847,26 @@ function outfitOwned(p,oid){ return oid==="none" || (p&&(p.ownedOutfits||[]).ind
 function roomItemOwned(p,did){ return !!(p&&(p.ownedRoomItems||[]).indexOf(did)>=0); }
 // 貨幣小圖示(用真圖，取代emoji)。cimg 可在 innerHTML 情境用；toast 純文字情境用 curTxt
 function cimg(t,sz){ var m={coin:'coin',coins:'coin',gem:'gem',food:'food',stam:'energy',energy:'energy',stamp:'stamp'}; sz=sz||15; return '<img src="assets/ui/'+(m[t]||t)+'.png" style="height:'+sz+'px;vertical-align:-3px">'; }
+function deEmoji(x){ if(x==null) return x; x=String(x);
+  var M={'🪙':'coin','🍎':'food','⚡':'energy','💎':'gem','🔖':'stamp','🎁':'gift','🏠':'home','🏡':'home','🏗':'build','🍲':'soup','🍳':'soup','🎤':'speak','🔊':'speak','🎣':'fish','📅':'daily','🍖':'hunger','❤':'bond','🗺':'explore','🏙':'adventure','🛒':'shop','⚙':'settings','🎯':'theme','🐾':'collection','📖':'dex','📚':'study','🧹':'clean','🧹':'clean','🧼':'clean','🫧':'clean','🔨':'work','🛠':'work','💼':'work','👥':'friends','🎱':'bingo'};
+  for(var k in M){ if(x.indexOf(k)>=0) x=x.split(k).join(cimg(M[k],15)); }
+  var strip=['✨','🎉','👏','💪','⭐','★','🌟','💫','🔥','❄','🎊','✅','☁','🌤'];
+  for(var i=0;i<strip.length;i++){ if(x.indexOf(strip[i])>=0) x=x.split(strip[i]).join(''); }
+  x=x.split('️').join('');
+  return x;
+}
+function sweepEmoji(root){ root=root||document.body; if(!root) return;
+  var re=/[☀-➿⬀-⯿⤴⤵❤⚙⚡️]|[\ud83c-\udbff][\udc00-\udfff]/;
+  var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false); var hits=[],n;
+  while(n=w.nextNode()){ var pn=n.parentNode&&n.parentNode.nodeName; if(pn==='SCRIPT'||pn==='STYLE'||pn==='TEXTAREA'||pn==='TITLE') continue; if(re.test(n.nodeValue)) hits.push(n); }
+  for(var i=0;i<hits.length;i++){ var t=hits[i]; var out=deEmoji(t.nodeValue); if(out!==t.nodeValue && t.parentNode){ var sp=document.createElement('span'); sp.innerHTML=out; t.parentNode.replaceChild(sp,t); } }
+}
+var _emojiObs=null,_sweepQ=null;
+function startEmojiSweep(){ try{ sweepEmoji(document.body);
+  _emojiObs=new MutationObserver(function(){ if(_sweepQ) return; _sweepQ=setTimeout(function(){ _sweepQ=null; if(_emojiObs)_emojiObs.disconnect(); try{ sweepEmoji(document.body); }catch(e){} if(_emojiObs)_emojiObs.observe(document.body,{childList:true,subtree:true}); },150); });
+  _emojiObs.observe(document.body,{childList:true,subtree:true});
+}catch(e){} }
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',startEmojiSweep); } else { startEmojiSweep(); }
 function curIc(cur){ return cimg(cur==="gem"?"gem":"coin"); }
 function curTxt(cur){ return cur==="gem"?"鑽石":"金幣"; }  // toast 純文字用(不能塞img)
 function uimg(name,sz){ sz=sz||18; return '<img src="assets/ui/'+name+'.png" style="height:'+sz+'px;vertical-align:-3px" onerror="this.style.display=\'none\'">'; }  // 通用UI圖示(模板字串內用)
@@ -2307,7 +2327,7 @@ function renameUser(){ const n=prompt("輸入新名字：", S.name); if(n===null
 function lock(){ document.querySelectorAll(".opt").forEach(o=>o.onclick=null); }
 function markRight(en){ document.querySelectorAll(".opt").forEach(o=>{ if(o.textContent===en) o.classList.add("right"); }); }
 function speak(t){ if(!t||!window.speechSynthesis) return; const u=new SpeechSynthesisUtterance(t); u.lang="en-US"; u.rate=.85; speechSynthesis.cancel(); speechSynthesis.speak(u); }
-function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1000); }
+function toast(msg){ const t=document.getElementById("toast"); t.innerHTML=deEmoji(msg); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1000); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ===== 背景音樂：瀏覽器內建生成的柔和五聲音階（免音檔）。Kevin 可之後給真 BGM 檔替換 ===== */
