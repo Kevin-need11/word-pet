@@ -434,6 +434,7 @@
       <button class="tab" data-mode="whack" onclick="setMode('whack')">打地鼠</button>
       <button class="tab" data-mode="bubble" onclick="setMode('bubble')">泡泡</button>
       <button class="tab" data-mode="fish" onclick="setMode('fish')">釣魚</button>
+      <button class="tab" data-mode="cloze" onclick="setMode('cloze')">填空</button>
     </div>
     <div class="quiz" id="quiz"></div>
   </div></div>
@@ -1388,6 +1389,44 @@ function sentCheck(){
   } else { toast("順序再調整看看～我再唸一次"); speak(sentState.en); sentState.picked=[]; sentRender(); }
 }
 
+/* 📝 句子填空(詞級克漏字)：聽句子、選出被挖掉的「整個字」＝句子級語意/語境(比拼字母高一層)。教學導向、答錯只軟彈可重選、不扣分。 */
+let clozeState=null;
+function renderCloze(){
+  const q=document.getElementById("quiz");
+  const sents=(typeof getSentences==="function")?getSentences(S.grades):[];
+  const usable=sents.filter(s=>{ if(!s.en)return false; const ws=s.en.replace(/[.,!?]/g,"").split(" ").filter(Boolean); return ws.length>=2 && ws.length<=9; });
+  if(!usable.length){ q.innerHTML=`<div class="ask">這個年級還沒有短句，⚙️後台勾高一點年級就能玩 📚</div>`; return; }
+  const s=usable[Math.floor(Math.random()*usable.length)];
+  const parts=s.en.split(" ");
+  const cand=parts.map((w,i)=>({w,i,clean:w.replace(/[^A-Za-z']/g,"")})).filter(o=>o.clean.length>=3);
+  if(!cand.length){ const s2=usable[Math.floor(Math.random()*usable.length)]; if(s2!==s){ setTimeout(renderCloze,0); return; } }
+  const inVocab=cand.filter(o=>words.some(x=>x.en.toLowerCase()===o.clean.toLowerCase()));
+  const pool=inVocab.length?inVocab:cand;
+  const chosen=pool[Math.floor(Math.random()*pool.length)] || {w:parts[0],i:0,clean:parts[0].replace(/[^A-Za-z']/g,"")};
+  const answer=chosen.clean;
+  let opts=[answer];
+  distractors(answer.toLowerCase(),4).forEach(d=>{ if(opts.length<4 && opts.every(o=>o.toLowerCase()!==d.toLowerCase())) opts.push(d); });
+  let guard=0;
+  while(opts.length<4 && guard++<30){ const w=words[Math.floor(Math.random()*words.length)]; if(w && opts.every(o=>o.toLowerCase()!==w.en.toLowerCase())) opts.push(w.en); }
+  opts=shuffle(opts);
+  clozeState={en:s.en, zh:s.zh, answer};
+  const shown=parts.map((w,i)=> i===chosen.i ? `<span id="clozeBlank" style="display:inline-block;min-width:46px;border-bottom:3px solid #e0a24a;color:#e0a24a;font-weight:900">＿＿</span>` : w).join(" ");
+  q.innerHTML=`<div class="ask">聽句子，選出「空格」的字</div>
+    <div class="zh" style="font-size:18px">${s.zh}</div>
+    <div style="font-size:18px;font-weight:900;color:#3a5a7a;margin:10px 0;line-height:1.7">${shown}</div>
+    <button class="speak" onclick="speak(clozeState.en)">🔊 再聽一次</button><div class="opts" id="opts"></div>`;
+  const box=document.getElementById("opts");
+  opts.forEach(w=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=w;
+    b.onclick=()=>{
+      if(w.toLowerCase()===answer.toLowerCase()){ lock(); b.classList.add("right");
+        const bl=document.getElementById("clozeBlank"); if(bl){ bl.textContent=answer; bl.style.borderBottom="none"; bl.style.color="#39a35a"; }
+        if(words.some(x=>x.en.toLowerCase()===answer.toLowerCase())) markLearned(answer.toLowerCase());
+        gotRight(2); speak(clozeState.en); toast("答對了！整句：「"+clozeState.zh+"」🪙+2"); setTimeout(renderCloze,1300); }
+      else{ b.classList.add("wrong"); b.onclick=null; b.disabled=true; toast("再聽聽看空格放哪個字 💪"); speak(clozeState.en); }
+    }; box.appendChild(b); });
+  setTimeout(()=>speak(s.en),300);
+}
+
 /* 🏙️ 城市闖關：對的道具 + 答對單字才能過關 */
 function openQuest(){ if(guardAway())return;
   const l=document.getElementById("lvList"); l.innerHTML="";
@@ -1553,7 +1592,7 @@ function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
   else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack();
-  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); else if(m==="speak") renderSpeak(); }
+  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); else if(m==="speak") renderSpeak(); else if(m==="cloze") renderCloze(); }
 
 /* 🎤 開口唸（聽音辨識）：教學導向、單字＋短句、寬鬆比對、只鼓勵不判錯不扣分 */
 let speakItem=null;
