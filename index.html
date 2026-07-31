@@ -372,9 +372,7 @@
       <img class="scenebg" id="sceneBg" alt="" onerror="this.dataset.failed=this.getAttribute('src'); this.style.display='none'">
       <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
       <div class="skytint" id="skytint"></div><div class="wx" id="wx"></div>
-      <button class="potbtn hidden" id="potBtn" onclick="openSoup()"><img src="assets/ui/soup.png" style="height:20px;vertical-align:-4px" onerror="this.replaceWith(document.createTextNode('🍲'))"> 煮湯</button>
-      <div class="stagebadge" id="stageName">蛋</div>
-      <button class="editbtn" id="editBtn" onclick="toggleEdit()">✋ 佈置</button>
+      <button class="editbtn hidden" id="editBtn" onclick="toggleEdit()">✓ 完成</button>
       <button class="piggy hidden" id="piggyBtn" onclick="collectPiggy()"><img src="assets/ui/coin.png" style="height:16px;vertical-align:-3px" onerror="this.replaceWith(document.createTextNode('🪙'))"> <span id="piggyN">0</span> 收取</button>
       <button class="harvest hidden" id="harvestBtn" onclick="collectHarvest()">🧺 <span id="harvestN">0</span> 收成</button>
       <button class="visitor hidden" id="visitorBtn" onclick="openVisitor()">🐦 招待</button>
@@ -483,8 +481,9 @@
     <div class="shopgrid" id="gearGrid"></div>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🍎 買食物（餵寵物用）</div>
     <div class="shopgrid" id="foodGrid"></div>
-    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置（買了到主畫面按「✋佈置」拖擺放）</div>
+    <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🏡 家佈置</div>
     <div class="shopgrid" id="shopGrid"></div>
+    <button class="btn" style="margin-top:10px;font-size:15px;padding:11px" onclick="closeSheet('shopWrap');toggleEdit()">✋ 佈置擺放家具</button>
     <div style="font-weight:900;font-size:14px;margin:16px 0 8px;">🎨 場景主題（換花色）</div>
     <div class="shopgrid" id="themeGrid"></div>
   </div></div>
@@ -866,7 +865,7 @@ function render(){
   updateDailyDot();
   document.getElementById("lv").textContent = lv;
   document.getElementById("lv2").textContent = lv;
-  document.getElementById("stageName").textContent = st.name;
+  const _sn=document.getElementById("stageName"); if(_sn) _sn.textContent = st.name;
   document.getElementById("petOwner").textContent = S.name + " 的寵物";
   const spec = JOBS.find(j=>j.id===p.specialty);
   document.getElementById("petName").textContent = (st.key!=="egg"? speciesName(p.species)+"·" : "") + st.name + (spec? "　擅長 "+spec.ic+spec.name : "");
@@ -1162,7 +1161,7 @@ function renderDecor(){
 }
 function toggleEdit(){
   editMode=!editMode;
-  const b=document.getElementById("editBtn"); b.textContent = editMode?"✓ 完成":"✋ 佈置"; b.classList.toggle("on",editMode);
+  const b=document.getElementById("editBtn"); if(b){ b.classList.toggle("hidden",!editMode); b.classList.toggle("on",editMode); }
   document.getElementById("scene").classList.toggle("editing",editMode);
   applyZoom();   // 佈置時回到 1 倍(免拖曳座標跑掉)，完成後恢復縮放
   if(!editMode) save();
