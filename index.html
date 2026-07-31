@@ -360,7 +360,7 @@
       <button class="gear" onclick="openDex()"><img src="assets/ui/dex.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('📖'))"></button>
       <button class="gear" onclick="openCollection()"><img src="assets/ui/collection.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🐾'))"></button>
       <button class="gear" onclick="openBuild()"><img src="assets/ui/build.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🏗️'))"></button>
-      <button class="gear" onclick="openBingo()"><img src="assets/ui/bingo.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🎱'))"></button>
+      <button class="gear" onclick="openWordSearch()"><img src="assets/ui/bingo.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🔍'))"></button>
       <button class="gear" onclick="openThemePacks()"><img src="assets/ui/theme.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('🎯'))"></button>
       <button class="gear" onclick="openFriends()"><img src="assets/ui/friends.png" style="height:23px;vertical-align:middle" onerror="this.replaceWith(document.createTextNode('👨'))"></button>
       <button class="gear" id="bgmBtn" onclick="toggleBGM()">🔊</button>
@@ -435,6 +435,7 @@
       <button class="tab" data-mode="bubble" onclick="setMode('bubble')">泡泡</button>
       <button class="tab" data-mode="fish" onclick="setMode('fish')">釣魚</button>
       <button class="tab" data-mode="cloze" onclick="setMode('cloze')">填空</button>
+      <button class="tab" data-mode="fill" onclick="setMode('fill')">填字母</button>
     </div>
     <div class="quiz" id="quiz"></div>
   </div></div>
@@ -1011,6 +1012,74 @@ function bingoCheckLines(){
     if(ln.every(x=>bingoState.marked.indexOf(x)>=0)){ bingoState.lines.push(idx); nu++; } });
   return nu;
 }
+/* 🔍 找字遊戲(取代賓果)：8×8 字母盤藏 6 個單字，看中文+英文清單，點「頭字母」再點「尾字母」把字連起來(橫向/直向，正反皆可)。找到＝劃掉+金幣+算學會。教學不罰，連錯只提示。 */
+let wsState=null;
+function openWordSearch(){
+  const uniq=[], seen=new Set();
+  for(const w of shuffle(words.slice())){ const e=(w.en||"").replace(/[^A-Za-z]/g,""); if(e.length>=3&&e.length<=8&&!seen.has(e.toLowerCase())){ seen.add(e.toLowerCase()); uniq.push({en:e, zh:w.zh}); } if(uniq.length>=6) break; }
+  if(uniq.length<4){ toast("單字不夠開找字（需 4 個以上短字），⚙️後台多勾幾個年級 📚"); return; }
+  const N=8;
+  const build=()=>{
+    const grid=Array.from({length:N},()=>Array(N).fill(""));
+    const placed=[];
+    for(const w of uniq){
+      const up=w.en.toUpperCase().split(""); let done=false;
+      for(let tr=0;tr<80&&!done;tr++){
+        const dir=Math.random()<0.5?[0,1]:[1,0];
+        const maxR=N-(dir[0]?up.length:1), maxC=N-(dir[1]?up.length:1);
+        const r0=Math.floor(Math.random()*(maxR+1)), c0=Math.floor(Math.random()*(maxC+1));
+        let ok=true;
+        for(let k=0;k<up.length;k++){ const g=grid[r0+dir[0]*k][c0+dir[1]*k]; if(g&&g!==up[k]){ok=false;break;} }
+        if(!ok) continue;
+        const cells=[]; for(let k=0;k<up.length;k++){ const rr=r0+dir[0]*k, cc=c0+dir[1]*k; grid[rr][cc]=up[k]; cells.push(rr*N+cc); }
+        placed.push({en:w.en, zh:w.zh, up:up.join(""), cells}); done=true;
+      }
+      if(!done) return null;
+    }
+    const A="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(!grid[r][c]) grid[r][c]=A[Math.floor(Math.random()*26)];
+    return {grid, placed};
+  };
+  let built=null; for(let t=0;t<40&&!built;t++) built=build();
+  if(!built){ toast("盤面生成失敗，再試一次 🔍"); return; }
+  wsState={N, grid:built.grid, words:built.placed, found:[], sel:null};
+  wsRender();
+}
+function wsRender(){
+  let m=document.getElementById("wsModal"); const first=!m;
+  if(first){ m=document.createElement("div"); m.className="modal"; m.id="wsModal"; }
+  const st=wsState, N=st.N;
+  const foundCells=new Set(); st.words.filter(w=>st.found.includes(w.up)).forEach(w=>w.cells.forEach(c=>foundCells.add(c)));
+  let cellsHtml="";
+  for(let i=0;i<N*N;i++){ const fc=foundCells.has(i), se=st.sel===i;
+    cellsHtml+=`<button onclick="wsTap(${i})" style="aspect-ratio:1;border:2px solid ${fc?'#3a8a5a':(se?'#e0872a':'#e6c98a')};background:${fc?'#c8ecd0':(se?'#ffe6b0':'#fff')};border-radius:6px;font-size:13px;font-weight:900;color:#3a5a7a;cursor:pointer;padding:0">${st.grid[Math.floor(i/N)][i%N]}</button>`;
+  }
+  const list=st.words.map(w=>{ const done=st.found.includes(w.up);
+    return `<span style="display:inline-block;margin:2px 3px;padding:3px 8px;border-radius:8px;font-size:12px;font-weight:800;background:${done?'#c8ecd0':'#fff4d8'};color:${done?'#3a8a5a':'#7a6a52'};text-decoration:${done?'line-through':'none'}">${w.zh} · ${w.en}</span>`; }).join("");
+  m.innerHTML=`<div class="sheet"><h2>🔍 找字遊戲</h2>
+    <div class="hint">在字母盤找出下面的字：點「第一個字母」再點「最後一個字母」把它連起來(橫向/直向)。已找到 ${st.found.length}/${st.words.length}</div>
+    <div style="display:grid;grid-template-columns:repeat(${N},1fr);gap:3px;margin:10px 0">${cellsHtml}</div>
+    <div style="line-height:2">${list}</div>
+    <button class="btn" onclick="document.getElementById('wsModal').remove();wsState=null;">關閉</button></div>`;
+  if(first) document.body.appendChild(m);
+}
+function wsTap(idx){
+  const st=wsState; if(!st) return;
+  if(st.sel===null){ st.sel=idx; wsRender(); return; }
+  if(st.sel===idx){ st.sel=null; wsRender(); return; }
+  const N=st.N, r1=Math.floor(st.sel/N),c1=st.sel%N, r2=Math.floor(idx/N),c2=idx%N;
+  let cells=null;
+  if(r1===r2){ const a=Math.min(c1,c2),b=Math.max(c1,c2); cells=[]; for(let c=a;c<=b;c++) cells.push(r1*N+c); }
+  else if(c1===c2){ const a=Math.min(r1,r2),b=Math.max(r1,r2); cells=[]; for(let r=a;r<=b;r++) cells.push(r*N+c1); }
+  if(!cells){ toast("要連成一直線(橫或直)哦～"); st.sel=null; wsRender(); return; }
+  const str=cells.map(i=>st.grid[Math.floor(i/N)][i%N]).join(""), rev=str.split("").reverse().join("");
+  const hit=st.words.find(w=>!st.found.includes(w.up) && (w.up===str||w.up===rev));
+  st.sel=null;
+  if(hit){ st.found.push(hit.up); markLearned(hit.en); speak(hit.en); S.coins+=5; S.stamp=(S.stamp||0)+1; save(); render(); wsRender();
+    if(st.found.length>=st.words.length){ setTimeout(()=>{ S.coins+=10; save(); render(); toast("全部找到！🎉 🪙+10"); },350); }
+    else toast("找到「"+hit.zh+"」！🪙+5");
+  } else { wsRender(); toast("這條不是清單上的字，再找找 💪"); }
+}
 /* 🏡 居家自主行動：寵物在家時自己輪流做家事（煮飯/掃地…），邊做邊幫你存錢（存錢筒） */
 const CHORES=[{ic:"🍳",t:"煮飯中"},{ic:"🍲",t:"煮湯中"},{ic:"🧹",t:"打掃中"},{ic:"🪴",t:"澆花中"},{ic:"📖",t:"讀單字"},{ic:"🎣",t:"釣魚中"},{ic:"🧺",t:"洗衣服"},{ic:"☕",t:"泡茶中"},{ic:"🎨",t:"畫畫中"},{ic:"🛁",t:"泡澡中"}];
 let chore={idx:0, until:0};
@@ -1427,6 +1496,53 @@ function renderCloze(){
   setTimeout(()=>speak(s.en),300);
 }
 
+/* 🔡 填字母：單字挖掉 1~2 個字母(大部分露出)、給中文+發音、點字母鈕補回＝比「拼字」簡單一階、當進拼字前的鷹架。教學導向：答錯不罰、清空可重來。 */
+let fillState=null;
+function renderFill(){
+  if(!words.length){ document.getElementById("quiz").innerHTML=`<div class="ask">還沒有單字，⚙️後台勾年級 📚</div>`; return; }
+  cur=pickWord();
+  const chars=cur.en.split("");
+  const letterIdx=chars.map((c,i)=>/[A-Za-z]/.test(c)?i:-1).filter(i=>i>=0);
+  const gmax=Math.max(...((S.grades&&S.grades.length)?S.grades:[1]));
+  let nBlank=(gmax>=4 && letterIdx.length>=4)?2:1;
+  nBlank=Math.min(nBlank, Math.max(1, letterIdx.length-1)); // 至少留一個字母露出當提示
+  const blanks=shuffle(letterIdx.slice()).slice(0,nBlank).sort((a,b)=>a-b);
+  const answer=blanks.map(i=>chars[i].toLowerCase());
+  const bank=answer.slice();
+  const A="abcdefghijklmnopqrstuvwxyz"; const target=Math.max(8, answer.length+5); let g=0;
+  while(bank.length<target && g++<80){ const c=A[Math.floor(Math.random()*26)];
+    if(bank.filter(x=>x===c).length < answer.filter(x=>x===c).length+1) bank.push(c); }
+  fillState={chars, blanks, answer, filled:[], bank:shuffle(bank), used:[]};
+  drawFill(); setTimeout(()=>speak(cur.en),300);
+}
+function drawFill(){
+  const st=fillState; if(!st) return;
+  const shown=st.chars.map((c,i)=>{ const bi=st.blanks.indexOf(i);
+    if(bi<0) return `<span style="color:#3a5a7a">${c}</span>`;
+    const f=st.filled[bi];
+    return `<span style="display:inline-block;min-width:24px;text-align:center;border-bottom:3px solid ${f?'#39a35a':'#e0a24a'};color:${f?'#39a35a':'#e0a24a'}">${f||'＿'}</span>`;
+  }).join("");
+  document.getElementById("quiz").innerHTML=
+    `<div class="ask">補上缺少的字母！(缺 ${st.blanks.length} 個)</div>
+     <div class="zh">${cur.zh}</div>
+     <button class="speak" onclick="speak(cur.en)">🔊 聽發音</button>
+     <div style="font-size:30px;font-weight:900;letter-spacing:3px;margin:14px 0">${shown}</div>
+     <div class="letters" id="fillBank"></div>
+     <button class="undo" onclick="fillUndo()">⌫ 退一格</button>`;
+  const box=document.getElementById("fillBank");
+  st.bank.forEach((c,i)=>{ const b=document.createElement("button"); b.className="lt"+(st.used.includes(i)?" used":""); b.textContent=c;
+    b.onclick=()=>fillTap(i); box.appendChild(b); });
+}
+function fillTap(i){
+  const st=fillState; if(!st||st.used.includes(i)||st.filled.length>=st.blanks.length) return;
+  st.filled.push(st.bank[i]); st.used.push(i);
+  if(st.filled.length<st.blanks.length){ drawFill(); return; }
+  const ok=st.filled.every((c,k)=>c===st.answer[k]); drawFill();
+  if(ok){ markLearned(cur.en); gotRight(1); speak(cur.en); if(Math.random()<0.4) gainCard(cur.en,0); toast("拼對了！🪙+1"); setTimeout(renderFill,1000); }
+  else{ speak(cur.en); toast("差一點～再試一次 💪"); setTimeout(()=>{ st.filled=[]; st.used=[]; drawFill(); },900); }
+}
+function fillUndo(){ const st=fillState; if(!st||!st.filled.length) return; st.filled.pop(); st.used.pop(); drawFill(); }
+
 /* 🏙️ 城市闖關：對的道具 + 答對單字才能過關 */
 function openQuest(){ if(guardAway())return;
   const l=document.getElementById("lvList"); l.innerHTML="";
@@ -1592,7 +1708,7 @@ function setMode(m){ mode=m; clearMinigame();
   document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("on", t.dataset.mode===m));
   if(m==="pick") renderPick(); else if(m==="spell") renderSpell(); else if(m==="listen") renderListen(); else if(m==="match") renderMatch();
   else if(m==="flash") renderFlash(); else if(m==="whack") renderWhack();
-  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); else if(m==="speak") renderSpeak(); else if(m==="cloze") renderCloze(); }
+  else if(m==="bubble") renderBubble(); else if(m==="fish") renderFish(); else if(m==="speak") renderSpeak(); else if(m==="cloze") renderCloze(); else if(m==="fill") renderFill(); }
 
 /* 🎤 開口唸（聽音辨識）：教學導向、單字＋短句、寬鬆比對、只鼓勵不判錯不扣分 */
 let speakItem=null;
